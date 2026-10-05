@@ -61,7 +61,11 @@ export function Connexion() {
     if (!email.trim()) return;
     setEnvoi(true); setErreur('');
     try {
-      await api.post('/auth/demander-code', { email: email.trim() });
+      const res = await api.post<{ ok: boolean; existe?: boolean; message?: string }>('/auth/demander-code', { email: email.trim() });
+      if (res.existe === false) {
+        setErreur(res.message || `Aucun compte n'est associé à cette adresse.`);
+        return;
+      }
       setEtape('code');
       toast('Code envoyé par e-mail');
     } catch (err) {
@@ -113,7 +117,28 @@ export function Connexion() {
           <button className="btn btn-jaune btn-large" disabled={envoi || !email.trim()}>
             {envoi ? 'Envoi du code…' : 'Recevoir mon code →'}
           </button>
-          <p className="tres-discret" style={{ fontSize: 13.5, textAlign: 'center', lineHeight: 1.4 }}>
+          <div style={{ marginTop: 14, padding: 12, background: 'var(--carte-fond, #FFF)', border: '2px solid var(--bordure, #111)', borderRadius: 12, fontSize: 13 }}>
+            <span style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--texte-discret)' }}>Comptes préconfigurés :</span>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-petit btn-secondaire"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => { setEmail('admin@plateforme.local'); setErreur(''); }}
+              >
+                🛡️ Plateforme (admin@plateforme.local)
+              </button>
+              <button
+                type="button"
+                className="btn btn-petit btn-secondaire"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => { setEmail('admin@demo.local'); setErreur(''); }}
+              >
+                🏢 Démo (admin@demo.local)
+              </button>
+            </div>
+          </div>
+          <p className="tres-discret" style={{ fontSize: 13.5, textAlign: 'center', lineHeight: 1.4, marginTop: 8 }}>
             Pas encore inscrit ? Rejoignez votre organisation via le lien partagé par votre administrateur.
           </p>
         </form>
@@ -127,6 +152,9 @@ export function Connexion() {
             <h2 style={{ fontSize: 30, marginBottom: 6 }}>Entrez votre code</h2>
             <p className="discret" style={{ fontSize: 14.5, margin: 0 }}>
               Un code temporaire à 6 chiffres a été envoyé à <strong>{email}</strong>.
+            </p>
+            <p className="tres-discret" style={{ fontSize: 12, margin: '8px 0 0', color: '#585D6B', background: '#FFF9D2', padding: '6px 10px', borderRadius: 8, border: '1px solid #111215' }}>
+              ℹ️ Si l'e-mail tarde ou en cas d'indisponibilité SMTP, le code s'affiche également dans : <code style={{ fontWeight: 800 }}>docker logs cyber</code>
             </p>
           </div>
           {erreur && <div className="erreur-form" role="alert">{erreur}</div>}

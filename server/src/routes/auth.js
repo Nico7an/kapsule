@@ -53,23 +53,28 @@ export default async function routesAuth(app) {
     const { email } = req.body ?? {};
     if (!emailValide(email)) return reply.code(400).send({ erreur: 'Adresse e-mail invalide' });
     const e = email.trim().toLowerCase();
+    console.log(`[AUTH] Demande de code OTP pour "${e}" (IP: ${req.ip})`);
+
     const cle = `code|${req.ip}|${e}`;
     if (app.limiteurConnexion.depasse(cle)) {
+      console.warn(`[AUTH] Limiteur de requêtes dépassé pour "${e}" (IP: ${req.ip})`);
       return reply.code(429).send({ erreur: 'Trop de demandes. Réessayez dans un quart d\'heure.' });
     }
 
     const u = db.prepare('SELECT * FROM users WHERE email = ?').get(e);
     if (!u || u.disabled) {
-      return reply.send({
-        ok: true,
+      console.warn(`[AUTH] Aucun compte actif trouvé pour "${e}". Aucun e-mail envoyé.`);
+      return reply.code(404).send({
+        erreur: `Aucun compte n'est associé à l'adresse "${e}". Vérifiez l'adresse ou demandez une invitation à votre administrateur.`,
         existe: false,
-        message: 'Si cette adresse est enregistrée, un code de connexion vient d\'y être envoyé.',
       });
     }
 
     const code = creerOtp(db, { email: u.email, type: 'connexion', orgId: u.org_id });
     const baseUrl = env.CYBER_URL || `${req.protocol}://${req.host}`;
     const lien = `${baseUrl}/?email=${encodeURIComponent(u.email)}&code=${code}`;
+
+    console.log(`[AUTH] Code OTP généré pour ${u.email} : ${code} | Lien direct: ${lien}`);
 
     await envoyerCodeConnexion({
       email: u.email,

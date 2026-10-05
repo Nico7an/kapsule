@@ -238,6 +238,11 @@ test('admin : création de membre et connexion par code d\'invitation OTP', asyn
   // Validation du nouveau code de connexion
   const reconnexion = await client().post('/api/auth/connexion', { email: 'dan@a.fr', code: demande.corps.devCode });
   assert.equal(reconnexion.statut, 200);
+
+  // Demande de code pour une adresse inconnue : 404 explicite
+  const inconnue = await client().post('/api/auth/demander-code', { email: 'inconnu@inconnu.fr' });
+  assert.equal(inconnue.statut, 404);
+  assert.equal(inconnue.corps.existe, false);
 });
 
 test('admin désactivé : session coupée', async () => {
