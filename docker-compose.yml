@@ -32,11 +32,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
-      - "traefik.http.routers.cyber.rule=Host(`${CYBER_HOST:-cyber.nico7an.fr}`)"
-      - "traefik.http.routers.cyber.entrypoints=websecure"
-      - "traefik.http.routers.cyber.tls.certresolver=myresolver"
-      - "traefik.http.routers.cyber.middlewares=${CYBER_MIDDLEWARES:-tailscale-whitelist@file}"
-      - "traefik.http.services.cyber.loadbalancer.server.port=3000"
+      - "traefik.http.routers.cyber-web.rule=Host(`${CYBER_HOST:-cyber.nico7an.fr}`)"
+      - "traefik.http.routers.cyber-web.entrypoints=websecure"
+      - "traefik.http.routers.cyber-web.tls.certresolver=myresolver"
+      - "traefik.http.routers.cyber-web.middlewares=${CYBER_MIDDLEWARES:-tailscale-whitelist@file}"
+      - "traefik.http.services.cyber-web.loadbalancer.server.port=3000"
 
 networks:
   traefik:
