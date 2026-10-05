@@ -17,7 +17,6 @@ export function Profil() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [badges, setBadges] = useState<Badge[] | null>(null);
   const [edition, setEdition] = useState(false);
-  const [mdp, setMdp] = useState(false);
 
   useEffect(() => {
     api.get<Stats>('/statistiques').then(setStats);
@@ -96,12 +95,13 @@ export function Profil() {
           <div className="carte carte-pad empile" style={{ gap: 10 }}>
             <h3 style={{ fontSize: 18 }}>Réglages</h3>
             <button className="btn" onClick={basculerSon}><Icone nom={moi.son ? 'son' : 'muet'} taille={20} />Sons {moi.son ? 'activés' : 'coupés'}</button>
-            <button className="btn" onClick={() => setMdp(true)}><Icone nom="cadenas" taille={20} />Changer de mot de passe</button>
+            <div className="pastille" style={{ padding: '8px 12px', fontSize: 12.5, fontWeight: 600 }}>
+              <Icone nom="cadenas" taille={16} /> Connexion par code sécurisé (OTP)
+            </div>
           </div>
         </aside>
       </div>
       {edition && <EditionProfil moi={moi} fermer={() => setEdition(false)} />}
-      {mdp && <ChangerMotDePasse fermer={() => setMdp(false)} />}
     </div>
   );
 }
@@ -137,27 +137,6 @@ function EditionProfil({ moi, fermer }: { moi: Moi; fermer: () => void }) {
         </div>
         <label className="champ"><span>Nom affiché dans le classement</span><input className="saisie" value={nom} onChange={(e) => setNom(e.target.value)} maxLength={60} required /></label>
         <button className="btn btn-jaune btn-large">Enregistrer</button>
-      </form>
-    </Modale>
-  );
-}
-
-function ChangerMotDePasse({ fermer }: { fermer: () => void }) {
-  const [actuel, setActuel] = useState('');
-  const [nouveau, setNouveau] = useState('');
-  const [erreur, setErreur] = useState('');
-  const envoyer = async (e: FormEvent) => {
-    e.preventDefault();
-    try { await api.post('/moi/mot-de-passe', { actuel, nouveau }); toast('Mot de passe changé, vos autres sessions sont fermées'); fermer(); }
-    catch (err) { setErreur((err as Error).message); }
-  };
-  return (
-    <Modale titre="Changer de mot de passe" fermer={fermer}>
-      <form className="empile" onSubmit={envoyer}>
-        {erreur && <div className="erreur-form">{erreur}</div>}
-        <label className="champ"><span>Mot de passe actuel</span><input className="saisie" type="password" autoComplete="current-password" value={actuel} onChange={(e) => setActuel(e.target.value)} required /></label>
-        <label className="champ"><span>Nouveau (10 caractères min. — une phrase de passe, c'est encore mieux)</span><input className="saisie" type="password" autoComplete="new-password" minLength={10} value={nouveau} onChange={(e) => setNouveau(e.target.value)} required /></label>
-        <button className="btn btn-jaune btn-large">Changer</button>
       </form>
     </Modale>
   );

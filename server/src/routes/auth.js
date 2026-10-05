@@ -1,9 +1,11 @@
 import {
   COOKIE, creerSession, supprimerSession, hacherMotDePasse, verifierMotDePasse, HACHAGE_FACTICE,
+  creerOtp, validerOtp,
 } from '../auth.js';
 import { exigerConnexion } from '../gardes.js';
 import { niveau, serieEffective, jourLocal } from '../jeu.js';
 import { xpDuJour } from '../requetes.js';
+import { envoyerCodeConnexion, envoyerCodeRejoindre } from '../email.js';
 
 export const AVATARS = ['renard', 'chat', 'hibou', 'panda', 'robot', 'pieuvre', 'grenouille', 'lapin', 'manchot', 'raton', 'tigre', 'licorne'];
 
@@ -29,7 +31,7 @@ export function vueMoi(db, u) {
   const badges = db.prepare('SELECT COUNT(*) AS n FROM user_badges WHERE user_id = ?').get(u.id).n;
   return {
     id: u.id, nom: u.name, email: u.email, role: u.role, avatar: u.avatar, son: !!u.sound,
-    doitChangerMotDePasse: !!u.must_change_pw,
+    doitChangerMotDePasse: false,
     xp: u.xp, ...niveau(u.xp),
     serie: serieEffective(u), meilleureSerie: u.best_streak, actifAujourdHui: u.last_active_day === jourLocal(),
     badges,
@@ -40,23 +42,108 @@ export function vueMoi(db, u) {
 
 export default async function routesAuth(app) {
   const { db } = app;
+  const env = process.env;
 
   const poserCookie = (reply, jeton, maxAge) => reply.setCookie(COOKIE, jeton, {
     path: '/', httpOnly: true, sameSite: 'lax', secure: app.cookieSecurise, maxAge,
   });
 
-  app.post('/auth/connexion', async (req, reply) => {
-    const { email, motDePasse } = req.body ?? {};
-    if (typeof email !== 'string' || typeof motDePasse !== 'string') return reply.code(400).send({ erreur: 'E-mail et mot de passe requis' });
-    const cle = `${req.ip}|${email.toLowerCase()}`;
-    if (app.limiteurConnexion.depasse(cle)) return reply.code(429).send({ erreur: 'Trop d\'essais. Réessayez dans un quart d\'heure.' });
-    const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email.trim());
-    const ok = verifierMotDePasse(motDePasse, u?.password_hash ?? HACHAGE_FACTICE) && u && !u.disabled;
-    if (!ok) return reply.code(401).send({ erreur: 'E-mail ou mot de passe incorrect' });
+  // Demande d'un code OTP de connexion par e-mail
+  app.post('/auth/demander-code', async (req, reply) => {
+    const { email } = req.body ?? {};
+    if (!emailValide(email)) return reply.code(400).send({ erreur: 'Adresse e-mail invalide' });
+    const e = email.trim().toLowerCase();
+    const cle = `code|${req.ip}|${e}`;
+    if (app.limiteurConnexion.depasse(cle)) {
+      return reply.code(429).send({ erreur: 'Trop de demandes. Réessayez dans un quart d\'heure.' });
+    }
+
+    const u = db.prepare('SELECT * FROM users WHERE email = ?').get(e);
+    if (!u || u.disabled) {
+      return reply.send({
+        ok: true,
+        existe: false,
+        message: 'Si cette adresse est enregistrée, un code de connexion vient d\'y être envoyé.',
+      });
+    }
+
+    const code = creerOtp(db, { email: u.email, type: 'connexion', orgId: u.org_id });
+    const baseUrl = env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const lien = `${baseUrl}/?email=${encodeURIComponent(u.email)}&code=${code}`;
+
+    await envoyerCodeConnexion({
+      email: u.email,
+      prenom: u.name.split(' ')[0],
+      code,
+      lienConnexion: lien,
+    });
+
+    return {
+      ok: true,
+      existe: true,
+      email: u.email,
+      message: 'Code envoyé par e-mail',
+      ...(env.NODE_ENV !== 'production' ? { devCode: code } : {}),
+    };
+  });
+
+  // Validation du code OTP de connexion
+  app.post('/auth/valider-code', async (req, reply) => {
+    const { email, code } = req.body ?? {};
+    if (!email || !code) return reply.code(400).send({ erreur: 'E-mail et code requis' });
+    const e = String(email).trim().toLowerCase();
+    const cle = `valider|${req.ip}|${e}`;
+    if (app.limiteurConnexion.depasse(cle)) {
+      return reply.code(429).send({ erreur: 'Trop d\'essais. Réessayez plus tard.' });
+    }
+
+    try {
+      validerOtp(db, { email: e, code });
+    } catch (err) {
+      return reply.code(400).send({ erreur: err.message });
+    }
+
+    const u = db.prepare('SELECT * FROM users WHERE email = ?').get(e);
+    if (!u || u.disabled) return reply.code(401).send({ erreur: 'Compte désactivé ou introuvable' });
+
     app.limiteurConnexion.reinitialiser(cle);
     const { jeton, maxAge } = creerSession(db, u.id);
     poserCookie(reply, jeton, maxAge);
     return vueMoi(db, u);
+  });
+
+  // Connexion combinée (OTP ou mot de passe en secours legacy)
+  app.post('/auth/connexion', async (req, reply) => {
+    const { email, code, motDePasse } = req.body ?? {};
+    if (!email) return reply.code(400).send({ erreur: 'E-mail requis' });
+    const e = String(email).trim().toLowerCase();
+
+    if (code) {
+      try {
+        validerOtp(db, { email: e, code });
+      } catch (err) {
+        return reply.code(400).send({ erreur: err.message });
+      }
+      const u = db.prepare('SELECT * FROM users WHERE email = ?').get(e);
+      if (!u || u.disabled) return reply.code(401).send({ erreur: 'Compte désactivé ou introuvable' });
+      const { jeton, maxAge } = creerSession(db, u.id);
+      poserCookie(reply, jeton, maxAge);
+      return vueMoi(db, u);
+    }
+
+    if (motDePasse) {
+      const cle = `${req.ip}|${e}`;
+      if (app.limiteurConnexion.depasse(cle)) return reply.code(429).send({ erreur: 'Trop d\'essais. Réessayez dans un quart d\'heure.' });
+      const u = db.prepare('SELECT * FROM users WHERE email = ?').get(e);
+      const ok = verifierMotDePasse(motDePasse, u?.password_hash ?? HACHAGE_FACTICE) && u && !u.disabled;
+      if (!ok) return reply.code(401).send({ erreur: 'E-mail ou mot de passe incorrect' });
+      app.limiteurConnexion.reinitialiser(cle);
+      const { jeton, maxAge } = creerSession(db, u.id);
+      poserCookie(reply, jeton, maxAge);
+      return vueMoi(db, u);
+    }
+
+    return reply.code(400).send({ erreur: 'Code de connexion requis' });
   });
 
   app.post('/auth/deconnexion', async (req, reply) => {
@@ -71,18 +158,65 @@ export default async function routesAuth(app) {
     return { organisation: org.name };
   });
 
+  // Étape 1 d'inscription publique : envoi de l'OTP
+  app.post('/auth/demander-inscription', async (req, reply) => {
+    const { code, nom, email, avatar } = req.body ?? {};
+    if (app.limiteurConnexion.depasse(`inscription|${req.ip}`)) return reply.code(429).send({ erreur: 'Trop d\'essais. Réessayez plus tard.' });
+    const org = typeof code === 'string' ? db.prepare('SELECT id, name FROM orgs WHERE invite_code = ?').get(code.toUpperCase()) : null;
+    if (!org) return reply.code(404).send({ erreur: 'Lien d\'invitation invalide ou expiré' });
+    const erreur = verifierNom(nom) ?? (!emailValide(email) ? 'Adresse e-mail invalide' : null);
+    if (erreur) return reply.code(400).send({ erreur });
+    const e = email.trim().toLowerCase();
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(e)) {
+      return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
+    }
+    const otp = creerOtp(db, { email: e, type: 'inscription', orgId: org.id, metadata: { nom: nom.trim(), avatar, code } });
+    await envoyerCodeRejoindre({ email: e, prenom: nom.trim().split(' ')[0], organisation: org.name, code: otp });
+    return { ok: true, organisation: org.name, ...(env.NODE_ENV !== 'production' ? { devCode: otp } : {}) };
+  });
+
+  // Étape 2 d'inscription publique : validation du code et création de compte
+  app.post('/auth/valider-inscription', async (req, reply) => {
+    const { email, code } = req.body ?? {};
+    if (!email || !code) return reply.code(400).send({ erreur: 'E-mail et code requis' });
+    const e = String(email).trim().toLowerCase();
+    let r;
+    try {
+      r = validerOtp(db, { email: e, code, type: 'inscription' });
+    } catch (err) {
+      return reply.code(400).send({ erreur: err.message });
+    }
+    const org = db.prepare('SELECT id, name FROM orgs WHERE id = ?').get(r.orgId);
+    if (!org) return reply.code(404).send({ erreur: 'Organisation introuvable' });
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(r.email)) {
+      return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
+    }
+    const { nom, avatar } = r.metadata;
+    const { lastInsertRowid } = db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar) VALUES (?, ?, ?, '', 'learner', ?)`)
+      .run(org.id, r.email, nom || 'Apprenant', AVATARS.includes(avatar) ? avatar : AVATARS[0]);
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(lastInsertRowid);
+    const { jeton, maxAge } = creerSession(db, u.id);
+    poserCookie(reply, jeton, maxAge);
+    return reply.code(201).send(vueMoi(db, u));
+  });
+
+  // Route d'inscription compatible (avec mot de passe ou sans)
   app.post('/auth/inscription', async (req, reply) => {
     const { code, nom, email, motDePasse, avatar } = req.body ?? {};
     if (app.limiteurConnexion.depasse(`inscription|${req.ip}`)) return reply.code(429).send({ erreur: 'Trop d\'essais. Réessayez plus tard.' });
     const org = typeof code === 'string' ? db.prepare('SELECT id FROM orgs WHERE invite_code = ?').get(code.toUpperCase()) : null;
     if (!org) return reply.code(404).send({ erreur: 'Lien d\'invitation invalide ou expiré' });
-    const erreur = verifierNom(nom) ?? (!emailValide(email) ? 'Adresse e-mail invalide' : null) ?? verifierNouveauMotDePasse(motDePasse);
+    const erreur = verifierNom(nom) ?? (!emailValide(email) ? 'Adresse e-mail invalide' : null);
     if (erreur) return reply.code(400).send({ erreur });
-    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email.trim())) {
+    if (motDePasse && verifierNouveauMotDePasse(motDePasse)) {
+      return reply.code(400).send({ erreur: verifierNouveauMotDePasse(motDePasse) });
+    }
+    const e = email.trim().toLowerCase();
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(e)) {
       return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
     }
     const { lastInsertRowid } = db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar) VALUES (?, ?, ?, ?, 'learner', ?)`)
-      .run(org.id, email.trim(), nom.trim(), hacherMotDePasse(motDePasse), AVATARS.includes(avatar) ? avatar : AVATARS[Math.floor(Math.random() * AVATARS.length)]);
+      .run(org.id, e, nom.trim(), motDePasse ? hacherMotDePasse(motDePasse) : '', AVATARS.includes(avatar) ? avatar : AVATARS[Math.floor(Math.random() * AVATARS.length)]);
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(lastInsertRowid);
     const { jeton, maxAge } = creerSession(db, u.id);
     poserCookie(reply, jeton, maxAge);
@@ -107,18 +241,10 @@ export default async function routesAuth(app) {
   });
 
   app.post('/moi/mot-de-passe', { preHandler: exigerConnexion }, async (req, reply) => {
-    const { actuel, nouveau } = req.body ?? {};
-    if (typeof actuel !== 'string' || !verifierMotDePasse(actuel, req.user.password_hash)) {
-      return reply.code(400).send({ erreur: 'Mot de passe actuel incorrect' });
-    }
+    const { nouveau } = req.body ?? {};
     const e = verifierNouveauMotDePasse(nouveau);
     if (e) return reply.code(400).send({ erreur: e });
-    if (nouveau === actuel) return reply.code(400).send({ erreur: 'Choisissez un mot de passe différent' });
-    db.prepare('UPDATE users SET password_hash = ?, must_change_pw = 0 WHERE id = ?').run(hacherMotDePasse(nouveau), req.user.id);
-    // Les autres sessions sont fermées ; celle-ci reste ouverte.
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(req.user.id);
-    const { jeton, maxAge } = creerSession(db, req.user.id);
-    poserCookie(reply, jeton, maxAge);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hacherMotDePasse(nouveau), req.user.id);
     return { ok: true };
   });
 }

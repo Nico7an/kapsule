@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { randomBytes, randomInt, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 
 const SESSION_JOURS = 30;
 export const COOKIE = 'cyber_session';
@@ -21,6 +21,75 @@ export function verifierMotDePasse(mdp, stocke) {
 export const HACHAGE_FACTICE = hacherMotDePasse(randomBytes(12).toString('hex'));
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
+
+/** Génère un code numérique à 6 chiffres (100000 - 999999). */
+export function genererOtp() {
+  return String(randomInt(100000, 1000000));
+}
+
+/** Enregistre un code OTP en base (valable 15 minutes). */
+export function creerOtp(db, { email, type = 'connexion', orgId = null, invitedBy = null, metadata = {} }) {
+  const e = email.trim().toLowerCase();
+  db.prepare('DELETE FROM otp_codes WHERE email = ? AND type = ?').run(e, type);
+  const code = genererOtp();
+  const hash = sha256(code);
+  const expire = Date.now() + 15 * 60_000;
+  db.prepare(`
+    INSERT INTO otp_codes (email, code_hash, type, org_id, invited_by, metadata, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(e, hash, type, orgId, invitedBy, JSON.stringify(metadata), expire);
+  return code;
+}
+
+/** Valide un code OTP et le consomme immédiatement. */
+export function validerOtp(db, { email, code, type }) {
+  const e = String(email || '').trim().toLowerCase();
+  const c = String(code || '').trim().replace(/\s+/g, '');
+  if (!e || !c || c.length !== 6) throw new Error('Code invalide');
+
+  const maintenant = Date.now();
+  db.prepare('DELETE FROM otp_codes WHERE expires_at <= ?').run(maintenant);
+
+  let requete = 'SELECT * FROM otp_codes WHERE email = ? AND expires_at > ?';
+  const params = [e, maintenant];
+  if (type) {
+    requete += ' AND type = ?';
+    params.push(type);
+  }
+  requete += ' ORDER BY id DESC LIMIT 1';
+
+  const r = db.prepare(requete).get(...params);
+  if (!r) throw new Error('Code expiré ou introuvable. Demandez un nouveau code.');
+
+  if (r.attempts >= 5) {
+    db.prepare('DELETE FROM otp_codes WHERE id = ?').run(r.id);
+    throw new Error('Trop d\'essais infructueux. Veuillez demander un nouveau code.');
+  }
+
+  db.prepare('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?').run(r.id);
+
+  const hashSaisi = Buffer.from(sha256(c));
+  const hashStocke = Buffer.from(r.code_hash);
+  if (hashSaisi.length !== hashStocke.length || !timingSafeEqual(hashSaisi, hashStocke)) {
+    const restants = 5 - (r.attempts + 1);
+    throw new Error(`Code incorrect (${restants} essai${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''})`);
+  }
+
+  // Code valide : on le détruit pour empêcher toute réutilisation
+  db.prepare('DELETE FROM otp_codes WHERE id = ?').run(r.id);
+  return {
+    id: r.id,
+    email: r.email,
+    type: r.type,
+    orgId: r.org_id,
+    invitedBy: r.invited_by,
+    metadata: JSON.parse(r.metadata || '{}'),
+  };
+}
+
+export function purgerOtps(db) {
+  db.prepare('DELETE FROM otp_codes WHERE expires_at <= ?').run(Date.now());
+}
 
 export function creerSession(db, userId) {
   const jeton = randomBytes(32).toString('base64url');

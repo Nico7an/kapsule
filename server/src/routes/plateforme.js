@@ -3,8 +3,9 @@
 // détail des apprenants : ce détail appartient à chaque organisation.
 import { exigerSuperadmin } from '../gardes.js';
 import { transaction } from '../db.js';
-import { hacherMotDePasse, motDePasseTemporaire, codeInvitation } from '../auth.js';
+import { codeInvitation, creerOtp } from '../auth.js';
 import { AVATARS, emailValide, verifierNom } from './auth.js';
+import { envoyerBienvenueAdmin } from '../email.js';
 
 export default async function routesPlateforme(app) {
   const { db } = app;
@@ -25,15 +26,34 @@ export default async function routesPlateforme(app) {
     if (typeof nom !== 'string' || !nom.trim() || nom.length > 80) return reply.code(400).send({ erreur: 'Nom d\'organisation invalide' });
     const e = verifierNom(adminNom) ?? (!emailValide(adminEmail) ? 'E-mail de l\'administrateur invalide' : null);
     if (e) return reply.code(400).send({ erreur: e });
-    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(adminEmail.trim())) return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
-    const mdp = motDePasseTemporaire();
+    const emailNormalise = adminEmail.trim().toLowerCase();
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(emailNormalise)) return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
+    
     const id = transaction(db, () => {
-      const { lastInsertRowid } = db.prepare('INSERT INTO orgs (name, invite_code) VALUES (?, ?)').run(nom.trim(), codeInvitation());
-      db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar, must_change_pw) VALUES (?, ?, ?, ?, 'admin', ?, 1)`)
-        .run(lastInsertRowid, adminEmail.trim(), adminNom.trim(), hacherMotDePasse(mdp), AVATARS[0]);
-      return Number(lastInsertRowid);
+      const { lastInsertRowid: orgId } = db.prepare('INSERT INTO orgs (name, invite_code) VALUES (?, ?)').run(nom.trim(), codeInvitation());
+      db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar) VALUES (?, ?, ?, '', 'admin', ?)`)
+        .run(orgId, emailNormalise, adminNom.trim(), AVATARS[0]);
+      return Number(orgId);
     });
-    return reply.code(201).send({ id, motDePasseTemporaire: mdp });
+
+    const code = creerOtp(db, { email: emailNormalise, type: 'connexion', orgId: id });
+    const baseUrl = process.env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const lien = `${baseUrl}/?email=${encodeURIComponent(emailNormalise)}&code=${code}`;
+
+    await envoyerBienvenueAdmin({
+      email: emailNormalise,
+      nom: adminNom.trim(),
+      organisation: nom.trim(),
+      code,
+      lienConnexion: lien,
+    });
+
+    return reply.code(201).send({
+      id,
+      code,
+      motDePasseTemporaire: code,
+      ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}),
+    });
   });
 
   app.delete('/organisations/:id', async (req, reply) => {

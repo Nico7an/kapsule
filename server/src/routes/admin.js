@@ -3,11 +3,12 @@
 import { randomBytes } from 'node:crypto';
 import { exigerAdmin } from '../gardes.js';
 import { transaction } from '../db.js';
-import { hacherMotDePasse, motDePasseTemporaire, codeInvitation } from '../auth.js';
+import { hacherMotDePasse, motDePasseTemporaire, codeInvitation, creerOtp } from '../auth.js';
 import { validerQuestions, ErreurValidation } from '../contenu/index.js';
 import { niveau, serieEffective, jourLocal, BADGES } from '../jeu.js';
 import { parcoursVisibles, classementSemaine, progression, debutSemaine } from '../requetes.js';
 import { AVATARS, emailValide, verifierNom } from './auth.js';
+import { envoyerInvitationMembre } from '../email.js';
 
 const JOUR = 86400_000;
 
@@ -160,11 +161,52 @@ export default async function routesAdmin(app) {
     const { nom, email, role } = req.body ?? {};
     const e = verifierNom(nom) ?? (!emailValide(email) ? 'Adresse e-mail invalide' : null) ?? (!['admin', 'learner'].includes(role) ? 'Rôle invalide' : null);
     if (e) return reply.code(400).send({ erreur: e });
-    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email.trim())) return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
-    const mdp = motDePasseTemporaire();
-    const { lastInsertRowid } = db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar, must_change_pw) VALUES (?, ?, ?, ?, ?, ?, 1)`)
-      .run(req.user.org_id, email.trim(), nom.trim(), hacherMotDePasse(mdp), role, AVATARS[Math.floor(Math.random() * AVATARS.length)]);
-    return reply.code(201).send({ id: Number(lastInsertRowid), motDePasseTemporaire: mdp });
+    const emailNormalise = email.trim().toLowerCase();
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(emailNormalise)) return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
+    
+    const org = db.prepare('SELECT name FROM orgs WHERE id = ?').get(req.user.org_id);
+    const { lastInsertRowid } = db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar) VALUES (?, ?, ?, '', ?, ?)`)
+      .run(req.user.org_id, emailNormalise, nom.trim(), role, AVATARS[Math.floor(Math.random() * AVATARS.length)]);
+    
+    const code = creerOtp(db, { email: emailNormalise, type: 'invitation', orgId: req.user.org_id, invitedBy: req.user.id });
+    const baseUrl = process.env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const lien = `${baseUrl}/?email=${encodeURIComponent(emailNormalise)}&code=${code}`;
+
+    await envoyerInvitationMembre({
+      email: emailNormalise,
+      nom: nom.trim(),
+      organisation: org?.name || 'Votre organisation',
+      invitePar: req.user.name,
+      code,
+      lienConnexion: lien,
+    });
+
+    return reply.code(201).send({
+      id: Number(lastInsertRowid),
+      code,
+      motDePasseTemporaire: code,
+      ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}),
+    });
+  });
+
+  app.post('/membres/:id/inviter', async (req, reply) => {
+    const u = membre(req, req.params.id);
+    if (!u) return reply.code(404).send({ erreur: 'Membre introuvable' });
+    const org = db.prepare('SELECT name FROM orgs WHERE id = ?').get(req.user.org_id);
+    const code = creerOtp(db, { email: u.email, type: 'invitation', orgId: req.user.org_id, invitedBy: req.user.id });
+    const baseUrl = process.env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const lien = `${baseUrl}/?email=${encodeURIComponent(u.email)}&code=${code}`;
+
+    await envoyerInvitationMembre({
+      email: u.email,
+      nom: u.name,
+      organisation: org?.name || 'Votre organisation',
+      invitePar: req.user.name,
+      code,
+      lienConnexion: lien,
+    });
+
+    return { ok: true, email: u.email, code, ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}) };
   });
 
   app.patch('/membres/:id', async (req, reply) => {

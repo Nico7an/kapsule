@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   org_id          INTEGER REFERENCES orgs(id) ON DELETE CASCADE,
   email           TEXT NOT NULL UNIQUE COLLATE NOCASE,
   name            TEXT NOT NULL,
-  password_hash   TEXT NOT NULL,
+  password_hash   TEXT NOT NULL DEFAULT '',
   role            TEXT NOT NULL CHECK (role IN ('superadmin','admin','learner')),
   avatar          TEXT NOT NULL DEFAULT 'renard',
   xp              INTEGER NOT NULL DEFAULT 0,
@@ -36,6 +36,20 @@ CREATE TABLE IF NOT EXISTS users (
   CHECK ((role = 'superadmin') = (org_id IS NULL))
 );
 CREATE INDEX IF NOT EXISTS users_org ON users(org_id);
+
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id          INTEGER PRIMARY KEY,
+  email       TEXT NOT NULL COLLATE NOCASE,
+  code_hash   TEXT NOT NULL,
+  type        TEXT NOT NULL DEFAULT 'connexion',
+  org_id      INTEGER REFERENCES orgs(id) ON DELETE CASCADE,
+  invited_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  metadata    TEXT DEFAULT '{}',
+  attempts    INTEGER NOT NULL DEFAULT 0,
+  expires_at  INTEGER NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+CREATE INDEX IF NOT EXISTS otp_email ON otp_codes(email);
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash  TEXT PRIMARY KEY,

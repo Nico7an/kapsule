@@ -100,16 +100,22 @@ function AjoutMembre({ fermer }: { fermer: () => void }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'learner' | 'admin'>('learner');
   const [erreur, setErreur] = useState('');
-  const [mdp, setMdp] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const envoyer = async (e: FormEvent) => {
     e.preventDefault();
-    try { setMdp((await api.post<{ motDePasseTemporaire: string }>('/admin/membres', { nom, email, role })).motDePasseTemporaire); }
-    catch (err) { setErreur((err as Error).message); }
+    try {
+      const res = await api.post<{ code: string }>('/admin/membres', { nom, email, role });
+      setCode(res.code);
+    } catch (err) {
+      setErreur((err as Error).message);
+    }
   };
-  if (mdp) return <MotDePasseTemporaire nom={nom} email={email} mdp={mdp} fermer={fermer} />;
+  if (code) return <InvitationEnvoyee nom={nom} email={email} code={code} fermer={fermer} />;
   return (
     <Modale titre="Ajouter un membre" fermer={fermer}>
-      <p className="discret" style={{ marginTop: -6 }}>Le plus simple reste de partager le lien d'invitation : chacun crée son compte. Ici, vous créez le compte vous-même avec un mot de passe temporaire.</p>
+      <p className="discret" style={{ marginTop: -6 }}>
+        Un e-mail d'invitation avec son code de connexion sécurisé sera automatiquement envoyé.
+      </p>
       <form className="empile" onSubmit={envoyer}>
         {erreur && <div className="erreur-form">{erreur}</div>}
         <label className="champ"><span>Nom</span><input className="saisie" value={nom} onChange={(e) => setNom(e.target.value)} required maxLength={60} /></label>
@@ -119,19 +125,21 @@ function AjoutMembre({ fermer }: { fermer: () => void }) {
             <option value="learner">Apprenant</option><option value="admin">Administrateur</option>
           </select>
         </label>
-        <button className="btn btn-jaune btn-large">Créer le compte</button>
+        <button className="btn btn-jaune btn-large">Créer et envoyer l'invitation</button>
       </form>
     </Modale>
   );
 }
 
-function MotDePasseTemporaire({ nom, email, mdp, fermer }: { nom: string; email: string; mdp: string; fermer: () => void }) {
+function InvitationEnvoyee({ nom, email, code, fermer }: { nom: string; email: string; code: string; fermer: () => void }) {
+  const lien = `${location.origin}/?email=${encodeURIComponent(email)}&code=${code}`;
   return (
-    <Modale titre="Mot de passe temporaire" fermer={fermer}>
-      <p>Transmettez-le à <strong>{nom}</strong> par un canal sûr. Il ne sera plus affiché, et devra être changé à la première connexion.</p>
-      <div className="secret">{mdp}</div>
+    <Modale titre="Invitation envoyée !" fermer={fermer}>
+      <p>Un e-mail d'invitation avec code de connexion a été envoyé à <strong>{nom}</strong> (<code>{email}</code>).</p>
+      <div className="secret" style={{ fontSize: 28, letterSpacing: '0.22em', textAlign: 'center' }}>{code}</div>
+      <p className="tres-discret" style={{ marginTop: -8 }}>Vous pouvez également lui transmettre le lien direct d'accès sur votre messagerie d'équipe :</p>
       <div className="actions">
-        <button className="btn" onClick={() => copier(`Identifiant : ${email}\nMot de passe temporaire : ${mdp}\n${location.origin}`, 'Identifiants copiés')}><Icone nom="copier" taille={18} />Copier</button>
+        <button className="btn" onClick={() => copier(lien, 'Lien direct copié')}><Icone nom="copier" taille={18} />Copier le lien</button>
         <button className="btn btn-jaune" onClick={fermer}>Terminé</button>
       </div>
     </Modale>
@@ -179,7 +187,7 @@ export function FicheMembre() {
         {!soiMeme && (
           <div className="ligne" style={{ flexWrap: 'wrap' }}>
             <button className="btn btn-petit" onClick={() => modifier({ role: m.role === 'admin' ? 'learner' : 'admin' }, 'Rôle modifié')}>{m.role === 'admin' ? 'Retirer admin' : 'Passer admin'}</button>
-            <button className="btn btn-petit" onClick={async () => setMdp((await api.post<{ motDePasseTemporaire: string }>(`/admin/membres/${m.id}/reinitialiser`)).motDePasseTemporaire)}>Réinitialiser le mot de passe</button>
+            <button className="btn btn-petit" onClick={async () => { try { const r = await api.post<{ code: string }>(`/admin/membres/${m.id}/inviter`); setMdp(r.code); toast('Invitation envoyée par e-mail'); } catch (e) { toast((e as Error).message); } }}><Icone nom="lien" taille={15} />Renvoyer l'invitation</button>
             <button className="btn btn-petit" onClick={() => modifier({ desactive: !m.desactive }, m.desactive ? 'Compte réactivé' : 'Compte désactivé')}>{m.desactive ? 'Réactiver' : 'Désactiver'}</button>
             <button className="btn btn-petit btn-rouge" onClick={() => setSuppression(true)} aria-label="Supprimer"><Icone nom="poubelle" taille={16} /></button>
           </div>
@@ -235,7 +243,7 @@ export function FicheMembre() {
           )}
         </section>
       </div>
-      {mdp && <MotDePasseTemporaire nom={m.nom} email={m.email} mdp={mdp} fermer={() => setMdp(null)} />}
+      {mdp && <InvitationEnvoyee nom={m.nom} email={m.email} code={mdp} fermer={() => setMdp(null)} />}
       {suppression && (
         <Modale titre="Supprimer ce membre ?" fermer={() => setSuppression(false)}>
           <p>Le compte de <strong>{m.nom}</strong>, son historique et ses badges seront définitivement effacés. Pour simplement bloquer l'accès, préférez « Désactiver ».</p>

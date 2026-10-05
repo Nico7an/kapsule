@@ -218,14 +218,26 @@ test('défis maison : invisibles des autres organisations', async () => {
   assert.equal(r.corps.correct, true);
 });
 
-test('admin : création de membre avec mot de passe temporaire', async () => {
+test('admin : création de membre et connexion par code d\'invitation OTP', async () => {
   const r = await adminA.post('/api/admin/membres', { nom: 'Dan', email: 'dan@a.fr', role: 'learner' });
   assert.equal(r.statut, 201);
+  assert.ok(r.corps.code);
   const dan = client();
-  const c = await dan.post('/api/auth/connexion', { email: 'dan@a.fr', motDePasse: r.corps.motDePasseTemporaire });
-  assert.equal(c.corps.doitChangerMotDePasse, true);
-  assert.equal((await dan.post('/api/moi/mot-de-passe', { actuel: r.corps.motDePasseTemporaire, nouveau: 'nouveau-mot-de-passe' })).statut, 200);
-  assert.equal((await dan.get('/api/moi')).corps.doitChangerMotDePasse, false);
+  // Connexion de Dan avec son code OTP d'invitation
+  const c = await dan.post('/api/auth/valider-code', { email: 'dan@a.fr', code: r.corps.code });
+  assert.equal(c.statut, 200);
+  assert.equal(c.corps.nom, 'Dan');
+  assert.equal(c.corps.email, 'dan@a.fr');
+
+  // Nouvelle demande de code pour se reconnecter
+  const demande = await dan.post('/api/auth/demander-code', { email: 'dan@a.fr' });
+  assert.equal(demande.statut, 200);
+  assert.equal(demande.corps.existe, true);
+  assert.ok(demande.corps.devCode);
+
+  // Validation du nouveau code de connexion
+  const reconnexion = await client().post('/api/auth/connexion', { email: 'dan@a.fr', code: demande.corps.devCode });
+  assert.equal(reconnexion.statut, 200);
 });
 
 test('admin désactivé : session coupée', async () => {

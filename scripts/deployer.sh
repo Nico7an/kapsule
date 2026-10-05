@@ -39,10 +39,27 @@ ID=$(api "$URL/api/stacks" | python3 -c "import json,sys; print(next((s['Id'] fo
 EXISTANTE=$([ -n "$ID" ] && api "$URL/api/stacks/$ID" || echo '{}')
 
 CORPS=$(python3 - "$IMAGE" "$STACK" "$EXISTANTE" <<'PY'
-import json, sys
+import json, sys, os
 image, nom, existante = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])
-env = [e for e in existante.get("Env") or [] if e["name"] != "CYBER_IMAGE"]
-env.append({"name": "CYBER_IMAGE", "value": image})
+env_dict = {e["name"]: e["value"] for e in existante.get("Env") or []}
+
+if os.path.exists(".env"):
+    with open(".env", "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                    v = v[1:-1]
+                env_dict[k] = v
+
+env_dict["CYBER_IMAGE"] = image
+env = [{"name": k, "value": v} for k, v in env_dict.items()]
+
 corps = {"stackFileContent": open("docker-compose.yml", encoding="utf-8").read(), "env": env}
 if existante:
     corps |= {"prune": True, "pullImage": False}

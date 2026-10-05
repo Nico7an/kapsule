@@ -2,8 +2,9 @@
 #
 # Architecture à conteneur unique :
 # - Fastify sert l'API et l'application React/Vite compilée
-# - Base de données SQLite intégrée sur volume persistant
-# - Isolation stricte multi-organisations
+# - Base de données SQLite intégrée sur volume persistant (/data)
+# - Authentification passwordless par e-mail (OTP sécurisé à 6 chiffres)
+# - E-mails transactionnels soignés (invitations, codes de connexion)
 #
 # L'image est construite via scripts/deployer.sh ou docker-compose.build.yml.
 # Portainer gère la stack via son éditeur Web ou l'API Portainer.
@@ -18,13 +19,19 @@ services:
     environment:
       PORT: 3000
       CYBER_DB: /data/cyber.db
+      CYBER_URL: ${CYBER_URL:-https://cyber.nico7an.fr}
       CYBER_ADMIN_EMAIL: ${CYBER_ADMIN_EMAIL:-admin@plateforme.local}
-      CYBER_ADMIN_PASSWORD: ${CYBER_ADMIN_PASSWORD:-ChangeMoi123!}
       CYBER_DEMO_EMAIL: ${CYBER_DEMO_EMAIL:-admin@demo.local}
-      CYBER_DEMO_PASSWORD: ${CYBER_DEMO_PASSWORD:-DemoCyber123!}
       CYBER_COOKIE_SECURISE: ${CYBER_COOKIE_SECURISE:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Paris
+      # Configuration SMTP pour l'envoi des OTP et invitations d'équipe
+      SMTP_HOST: ${SMTP_HOST:-ssl0.ovh.net}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_EMAIL: ${SMTP_EMAIL:-no-reply@krateos.fr}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-887LeZbarChibreCouille332--}
+      SMTP_FROM: ${SMTP_FROM:-"Cyber <no-reply@krateos.fr>"}
     volumes:
       - /home/nico/Documents/cyber/data:/data
     networks:

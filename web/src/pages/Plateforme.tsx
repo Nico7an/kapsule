@@ -54,19 +54,25 @@ function Creation({ fermer }: { fermer: () => void }) {
   const [adminNom, setAdminNom] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [erreur, setErreur] = useState('');
-  const [mdp, setMdp] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const envoyer = async (e: FormEvent) => {
     e.preventDefault();
-    try { setMdp((await api.post<{ motDePasseTemporaire: string }>('/plateforme/organisations', { nom, adminNom, adminEmail })).motDePasseTemporaire); }
-    catch (err) { setErreur((err as Error).message); }
+    try {
+      const res = await api.post<{ code: string }>('/plateforme/organisations', { nom, adminNom, adminEmail });
+      setCode(res.code);
+    } catch (err) {
+      setErreur((err as Error).message);
+    }
   };
-  if (mdp) {
+  if (code) {
+    const lien = `${location.origin}/?email=${encodeURIComponent(adminEmail)}&code=${code}`;
     return (
-      <Modale titre="Organisation créée" fermer={fermer}>
-        <p>Transmettez à <strong>{adminNom}</strong> son mot de passe temporaire (à changer à la première connexion) :</p>
-        <div className="secret">{mdp}</div>
+      <Modale titre="Organisation créée !" fermer={fermer}>
+        <p>L'espace <strong>{nom}</strong> est créé. Un e-mail de bienvenue avec code d'accès a été envoyé à <strong>{adminNom}</strong> (<code>{adminEmail}</code>).</p>
+        <div className="secret" style={{ fontSize: 28, letterSpacing: '0.22em', textAlign: 'center' }}>{code}</div>
+        <p className="tres-discret" style={{ marginTop: -8 }}>Vous pouvez également lui transmettre le lien direct d'accès à son tableau de bord :</p>
         <div className="actions">
-          <button className="btn" onClick={() => copier(`${location.origin}\nIdentifiant : ${adminEmail}\nMot de passe temporaire : ${mdp}`, 'Identifiants copiés')}><Icone nom="copier" taille={18} />Copier</button>
+          <button className="btn" onClick={() => copier(lien, 'Lien direct copié')}><Icone nom="copier" taille={18} />Copier le lien</button>
           <button className="btn btn-jaune" onClick={fermer}>Terminé</button>
         </div>
       </Modale>
