@@ -14,7 +14,7 @@ export function CarteNiveau({ moi }: { moi: Moi }) {
           <div className="tres-discret" style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>Niveau {moi.niveau}</div>
           <h3 style={{ fontSize: 22 }}>{moi.grade}</h3>
         </div>
-        <Icone nom="bouclier" taille={44} couleur="var(--bleu)" epaisseur={2} />
+        <Icone nom="grade" taille={44} couleur="var(--bleu)" epaisseur={2} />
       </div>
       <Jauge valeur={moi.xpNiveau / moi.xpPalier} couleur="var(--bleu)" />
       <div className="ligne entre mono" style={{ fontSize: 13, fontWeight: 700 }}>

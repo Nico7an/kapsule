@@ -63,11 +63,13 @@ const TRACES: Record<string, string> = {
   boussole: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5l-2 5-5 2 2-5z',
   livre: 'M12 6.5C10.5 5 8 4.5 3 4.5v14c5 0 7.5.5 9 2 1.5-1.5 4-2 9-2v-14c-5 0-7.5.5-9 2zM12 6.5v14',
   diplome: 'M2 9l10-5 10 5-10 5zM6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5M22 9v6',
+  coeur: 'M12 20.5s-8-4.6-8-10.4A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 8 2.5c0 5.8-8 10.4-8 10.4z',
+  grade: 'M5 13l7-5 7 5M5 19l7-5 7 5M12 2.5l1.3 2.6 2.8.4-2 2 .5 2.8L12 9l-2.6 1.3.5-2.8-2-2 2.8-.4z',
   objectif: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6',
 };
 
 // Icônes pleines (le trait reste noir, l'intérieur prend la couleur).
-const PLEINES = new Set(['eclair', 'flamme', 'etoile', 'couronne', 'gemme', 'bouclier', 'trophee', 'lune', 'pied']);
+const PLEINES = new Set(['eclair', 'flamme', 'etoile', 'couronne', 'gemme', 'bouclier', 'trophee', 'lune', 'pied', 'coeur']);
 
 interface Props { nom: string; taille?: number; couleur?: string; epaisseur?: number; className?: string; style?: CSSProperties; titre?: string }
 

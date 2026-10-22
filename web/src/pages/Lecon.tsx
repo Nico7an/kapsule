@@ -9,8 +9,8 @@ import { Mascotte, type Humeur } from '../composants/Mascotte';
 import { Chargement, Confettis, Compteur, Jauge, Modale, duree } from '../composants/Divers';
 import { ListeClassementLecon } from '../composants/Panneaux';
 
-const BRAVO = ['Bien vu !', 'Imparable !', 'Exactement !', 'Pare-feu humain !', 'Bloqué net !', 'Rien ne vous échappe !'];
-const OUPS = ['Pas tout à fait…', 'Aïe, c\'était un piège !', 'Raté, mais retenez ceci', 'Presque !'];
+const BRAVO = ['Bien vu !', 'Imparable !', 'Exactement !', 'Bien joué !', 'Dans le mille !', 'Rien ne vous échappe !'];
+const OUPS = ['Pas tout à fait…', 'Aïe, pas cette fois !', 'Raté, mais retenez ceci', 'Presque !'];
 const auHasard = (t: string[]) => t[Math.floor(Math.random() * t.length)];
 
 export function Lecon() {
@@ -119,9 +119,9 @@ export function Lecon() {
       <div className="lecteur-haut">
         <button className="btn btn-fantome btn-icone" onClick={() => setQuitter(true)} aria-label="Quitter la leçon"><Icone nom="croix" taille={28} /></button>
         <Jauge valeur={avancement} />
-        <div className="boucliers" aria-label={`${boucliers} bouclier${boucliers > 1 ? 's' : ''} restant${boucliers > 1 ? 's' : ''}`}>
+        <div className="boucliers" aria-label={`${boucliers} vie${boucliers > 1 ? 's' : ''} restante${boucliers > 1 ? 's' : ''}`}>
           {Array.from({ length: partie.boucliers }, (_, i) => (
-            <Icone key={i} nom="bouclier" taille={28} epaisseur={2.2} couleur="var(--bleu)"
+            <Icone key={i} nom="coeur" taille={28} epaisseur={2.2} couleur="var(--rouge)"
               className={i >= boucliers ? (i === casse ? 'perdu vient-de-casser' : 'perdu') : ''} />
           ))}
         </div>
@@ -144,7 +144,7 @@ export function Lecon() {
               <>
                 <Mascotte humeur={humeur} taille={76} className="mascotte-verdict" />
                 <div role="status">
-                  <h3>{correction.compromis ? 'Boucliers épuisés !' : message}</h3>
+                  <h3>{correction.compromis ? 'Plus de vies !' : message}</h3>
                   {correction.explication && <p>{correction.explication}</p>}
                 </div>
               </>
@@ -243,7 +243,7 @@ function EcranBilan({ bilan, partie, rejouer }: { bilan: Bilan; partie: Partie; 
         <div className="resultat-carte">
           <div className="compromis-bandeau hachures-rouges" />
           <Mascotte humeur="compromis" taille={150} />
-          <h1>Boucliers épuisés</h1>
+          <h1>Plus de vies</h1>
           <p className="discret" style={{ fontSize: 18 }}>Trois erreurs, la leçon s'arrête là. Relisez les explications et retentez : c'est en se trompant qu'on retient. On remet ça ?</p>
           <div className="tuiles">
             <div className="tuile c-rouge"><div>Bonnes</div><div>{bilan.correct}/{bilan.total}</div></div>
@@ -290,7 +290,7 @@ function EcranBilan({ bilan, partie, rejouer }: { bilan: Bilan; partie: Partie; 
 
         {bilan.montee && (
           <div className="carte bandeau c-bleu" style={{ background: 'var(--bleu)', color: '#fff', animation: 'pop 600ms 900ms both' }}>
-            <Icone nom="bouclier" taille={40} couleur="var(--jaune)" epaisseur={2} />
+            <Icone nom="grade" taille={40} couleur="var(--jaune)" epaisseur={2} />
             <div><div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 800 }}>Niveau supérieur</div><div style={{ fontSize: 22, fontWeight: 800 }}>Niveau {bilan.niveauApres.niveau} · {bilan.niveauApres.grade}</div></div>
           </div>
         )}

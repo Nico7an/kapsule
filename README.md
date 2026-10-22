@@ -1,6 +1,6 @@
 # Kapsule — comprendre toute la boîte, en 3 minutes par jour
 
-**Kapsule** est une plateforme d'apprentissage ludique (dans l'esprit de Duolingo) pour comprendre le travail de toute l'entreprise : les métiers des collègues (dev, DevOps, marketing, commerciaux, Customer Success, CTO, CEO), le droit des sociétés et le quotidien des clients (avocats, experts-comptables, juristes d'entreprise), et les bons réflexes de cybersécurité. Elle combine gamification, isolation stricte multi-organisations et tableaux de bord d'administration.
+**Kapsule** est une plateforme d'apprentissage ludique (dans l'esprit de Duolingo) pour comprendre le travail de toute l'entreprise : les métiers des collègues (dev, DevOps, marketing, commerciaux, Customer Success, CTO, CEO), le droit des sociétés et le quotidien des clients (avocats, experts-comptables, juristes d'entreprise), la cybersécurité, ainsi que la formation et l'inclusion (troubles dys, CFA). Elle combine gamification, isolation stricte multi-organisations et tableaux de bord d'administration.
 
 L'application s'appelait auparavant « Cyber » (cyber.nico7an.fr, redirigé vers kapsule.nico7an.fr).
 
@@ -9,7 +9,7 @@ L'application s'appelait auparavant « Cyber » (cyber.nico7an.fr, redirigé ver
 ## 🎮 Fonctionnalités
 
 ### Expérience Apprenant (Ultra-ludique)
-- **Parcours en arborescence serpentant**, dont la cybersécurité :
+- **Parcours en arborescence serpentant**, par exemple en cybersécurité :
   - *Les réflexes de base* (mots de passe, 2FA/MFA, mises à jour)
   - *Hameçonnage & ingénierie sociale* (analyse d'e-mails suspects, SMS frauduleux, arnaque au président)
   - *Mobilité & télétravail* (Wi-Fi public, clés USB inconnues, verrouillage de poste)
@@ -17,9 +17,9 @@ L'application s'appelait auparavant « Cyber » (cyber.nico7an.fr, redirigé ver
   - *Réaction aux incidents* (rançongiciels, réflexes d'alerte, déconnexion)
 - **Mascotte « Kapi »**, une gélule qui réagit aux actions (encouragements, avertissements, fierté).
 - **Mécanique de jeu** :
-  - 3 boucliers par leçon (« Boucliers épuisés » au bout de trois erreurs).
+  - 3 vies par leçon (« Plus de vies » au bout de trois erreurs).
   - Multiplicateurs de combo (flammes de série).
-  - Points d'expérience (XP) et niveaux avec grades (Recrue → Légende).
+  - Points d'expérience (XP) et niveaux avec grades (Curieux → Légende).
   - Séries quotidiennes (*streaks*) pour ancrer l'habitude.
   - Badges de succès déblocables (Sans faute, Couteau suisse, Inarrêtable, etc.).
   - Effets sonores procéduraux (Web Audio API) et confettis de victoire.
@@ -29,9 +29,12 @@ Le sélecteur de la page *Apprendre* regroupe les parcours par famille :
 - **Cybersécurité** : les cinq parcours ci-dessus.
 - **Droit des sociétés** : l'essentiel (formes de société, titres, assemblées, approbation des comptes), puis le quotidien des avocats en droit des sociétés, des experts-comptables et des juristes d'entreprise.
 - **Métiers de l'entreprise** : développeurs, DevOps, marketing, commerciaux, Customer Success, CTO et CEO, pour comprendre le travail des collègues.
+- **Formation et inclusion** : découvrir les troubles dys, découvrir les CFA (rôle, administration, formateurs, référent handicap, financeurs, place dans l'éducation).
 - **Défis maison** : les questionnaires créés par l'organisation.
 
-Chaque parcours droit et métiers s'ouvre sur une leçon « lexique » (les mots du métier, définis simplement) et se termine par une leçon « niveau expert », plus difficile.
+Un administrateur peut supprimer, pour sa seule organisation, n'importe quel parcours ou leçon du catalogue (page *Défis* › *Défis standard*), et le restaurer plus tard.
+
+Chaque parcours droit, métiers et formation s'ouvre sur une leçon « lexique » (les mots du métier, définis simplement) et se termine par une leçon « niveau expert », plus difficile.
 
 ### Compétition et Classements
 - **Podium et classements publics au sein de l'organisation** :

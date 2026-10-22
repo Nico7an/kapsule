@@ -190,7 +190,7 @@ export async function envoyerInvitationMembre({ email, nom, organisation, invite
   const titre = `Bienvenue dans l'équipe ${organisation} !`;
   const paragraphe = `
     <p><strong>${invitePar || 'Votre administrateur'}</strong> vous a invité à rejoindre l'espace <strong>${organisation}</strong> sur <strong>Kapsule</strong>.</p>
-    <p>Rejoignez vos collègues pour découvrir les métiers de toute l’entreprise, le droit des sociétés et les bons réflexes de cybersécurité, en courtes sessions de 3 minutes.</p>
+    <p>Rejoignez vos collègues pour comprendre toute l’entreprise : métiers, droit des sociétés, cybersécurité, formation et inclusion, en courtes sessions de 3 minutes.</p>
     <p>Pour votre première connexion, utilisez le code temporaire ci-dessous :</p>
   `;
   const preheader = `${invitePar || 'Votre équipe'} vous a invité sur Kapsule. Votre code d'accès : ${code}`;

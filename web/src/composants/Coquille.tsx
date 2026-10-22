@@ -40,7 +40,7 @@ export function Compteurs({ moi }: { moi: Moi }) {
         <Icone nom="eclair" taille={22} couleur="var(--jaune)" epaisseur={2} />{moi.xp}
       </span>
       <span className="compteur" title={`Niveau ${moi.niveau} · ${moi.grade}`}>
-        <Icone nom="bouclier" taille={22} couleur="var(--bleu)" epaisseur={2} />{moi.niveau}
+        <Icone nom="grade" taille={22} couleur="var(--bleu)" epaisseur={2} />{moi.niveau}
       </span>
     </div>
   );

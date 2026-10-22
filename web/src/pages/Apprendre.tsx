@@ -171,7 +171,7 @@ function Noeud({ lecon, decalage, actuel, ouvert, refActuel, basculer, voirClass
           <h3>{lecon.titre}</h3>
           <p style={{ fontSize: 14, marginTop: 4 }}>
             {!lecon.ouverte ? 'Réussissez la leçon précédente pour ouvrir celle-ci.'
-              : `${lecon.nbQuestions} questions · 3 boucliers${lecon.reussie ? ' · révision : XP ÷ 2' : ''}`}
+              : `${lecon.nbQuestions} questions · 3 vies${lecon.reussie ? ' · révision : XP ÷ 2' : ''}`}
           </p>
           {lecon.ouverte && (
             <>

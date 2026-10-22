@@ -19,7 +19,7 @@ function Vitrine() {
       <Mascotte humeur="fier" taille={140} className="mascotte-vitrine" />
       <h1>Toute la boîte, en 3&nbsp;minutes par jour.</h1>
       <div className="arguments">
-        <div><span><Icone nom="cible" /></span>Des capsules éclair : métiers, droit des sociétés, cybersécurité</div>
+        <div><span><Icone nom="cible" /></span>Des capsules éclair sur tous les sujets de l’entreprise</div>
         <div><span><Icone nom="flamme" couleur="var(--orange)" epaisseur={2} /></span>Des séries, des badges, des niveaux</div>
         <div><span><Icone nom="podium" /></span>Un classement avec vos collègues</div>
       </div>
