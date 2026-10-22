@@ -100,17 +100,16 @@ function AjoutMembre({ fermer }: { fermer: () => void }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'learner' | 'admin'>('learner');
   const [erreur, setErreur] = useState('');
-  const [code, setCode] = useState<string | null>(null);
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
   const envoyer = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await api.post<{ code: string }>('/admin/membres', { nom, email, role });
-      setCode(res.code);
+      setInvitation(await api.post<Invitation>('/admin/membres', { nom, email, role }));
     } catch (err) {
       setErreur((err as Error).message);
     }
   };
-  if (code) return <InvitationEnvoyee nom={nom} email={email} code={code} fermer={fermer} />;
+  if (invitation) return <InvitationEnvoyee nom={nom} email={email} invitation={invitation} fermer={fermer} />;
   return (
     <Modale titre="Ajouter un membre" fermer={fermer}>
       <p className="discret" style={{ marginTop: -6 }}>
@@ -131,13 +130,17 @@ function AjoutMembre({ fermer }: { fermer: () => void }) {
   );
 }
 
-function InvitationEnvoyee({ nom, email, code, fermer }: { nom: string; email: string; code: string; fermer: () => void }) {
+interface Invitation { code: string; emailEnvoye: boolean }
+
+function InvitationEnvoyee({ nom, email, invitation: { code, emailEnvoye }, fermer }: { nom: string; email: string; invitation: Invitation; fermer: () => void }) {
   const lien = `${location.origin}/?email=${encodeURIComponent(email)}&code=${code}`;
   return (
-    <Modale titre="Invitation envoyée !" fermer={fermer}>
-      <p>Un e-mail d'invitation avec code de connexion a été envoyé à <strong>{nom}</strong> (<code>{email}</code>).</p>
+    <Modale titre={emailEnvoye ? 'Invitation envoyée !' : 'E-mail non envoyé'} fermer={fermer}>
+      {emailEnvoye
+        ? <p>Un e-mail d'invitation avec code de connexion a été envoyé à <strong>{nom}</strong> (<code>{email}</code>).</p>
+        : <div className="erreur-form" role="alert">L'e-mail d'invitation n'a pas pu partir vers <strong>{email}</strong>. Transmettez-lui le code ou le lien ci-dessous, ou réessayez plus tard avec « Renvoyer l'invitation ».</div>}
       <div className="secret" style={{ fontSize: 28, letterSpacing: '0.22em', textAlign: 'center' }}>{code}</div>
-      <p className="tres-discret" style={{ marginTop: -8 }}>Vous pouvez également lui transmettre le lien direct d'accès sur votre messagerie d'équipe :</p>
+      <p className="tres-discret" style={{ marginTop: -8 }}>{emailEnvoye ? 'Vous pouvez également lui transmettre le lien direct d\'accès sur votre messagerie d\'équipe :' : 'Lien direct d\'accès, valable 15 minutes :'}</p>
       <div className="actions">
         <button className="btn" onClick={() => copier(lien, 'Lien direct copié')}><Icone nom="copier" taille={18} />Copier le lien</button>
         <button className="btn btn-jaune" onClick={fermer}>Terminé</button>
@@ -158,7 +161,7 @@ export function FicheMembre() {
   const navigate = useNavigate();
   const [m, setM] = useState<Detail | null>(null);
   const [erreur, setErreur] = useState('');
-  const [mdp, setMdp] = useState<string | null>(null);
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [suppression, setSuppression] = useState(false);
   const charger = useCallback(() => { api.get<Detail>(`/admin/membres/${id}`).then(setM).catch((e) => setErreur(e.message)); }, [id]);
   useEffect(charger, [charger]);
@@ -187,7 +190,7 @@ export function FicheMembre() {
         {!soiMeme && (
           <div className="ligne" style={{ flexWrap: 'wrap' }}>
             <button className="btn btn-petit" onClick={() => modifier({ role: m.role === 'admin' ? 'learner' : 'admin' }, 'Rôle modifié')}>{m.role === 'admin' ? 'Retirer admin' : 'Passer admin'}</button>
-            <button className="btn btn-petit" onClick={async () => { try { const r = await api.post<{ code: string }>(`/admin/membres/${m.id}/inviter`); setMdp(r.code); toast('Invitation envoyée par e-mail'); } catch (e) { toast((e as Error).message); } }}><Icone nom="lien" taille={15} />Renvoyer l'invitation</button>
+            <button className="btn btn-petit" onClick={async () => { try { const r = await api.post<Invitation>(`/admin/membres/${m.id}/inviter`); setInvitation(r); if (r.emailEnvoye) toast('Invitation envoyée par e-mail'); } catch (e) { toast((e as Error).message); } }}><Icone nom="lien" taille={15} />Renvoyer l'invitation</button>
             <button className="btn btn-petit" onClick={() => modifier({ desactive: !m.desactive }, m.desactive ? 'Compte réactivé' : 'Compte désactivé')}>{m.desactive ? 'Réactiver' : 'Désactiver'}</button>
             <button className="btn btn-petit btn-rouge" onClick={() => setSuppression(true)} aria-label="Supprimer"><Icone nom="poubelle" taille={16} /></button>
           </div>
@@ -231,7 +234,7 @@ export function FicheMembre() {
                   {m.historique.slice(0, 15).map((h, k) => (
                     <tr key={k}>
                       <td>{h.lecon}<div className="tres-discret" style={{ fontSize: 12 }}>{new Date(h.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</div></td>
-                      <td className="num">{h.echec ? <span className="pastille pastille-rouge">compromis</span> : <Etoiles n={h.etoiles} taille={13} />}</td>
+                      <td className="num">{h.echec ? <span className="pastille pastille-rouge">échouée</span> : <Etoiles n={h.etoiles} taille={13} />}</td>
                       <td className="num">{h.correct}/{h.total}</td>
                       <td className="num">{duree(h.dureeMs)}</td>
                       <td className="num">+{h.xp}</td>
@@ -243,7 +246,7 @@ export function FicheMembre() {
           )}
         </section>
       </div>
-      {mdp && <InvitationEnvoyee nom={m.nom} email={m.email} code={mdp} fermer={() => setMdp(null)} />}
+      {invitation && <InvitationEnvoyee nom={m.nom} email={m.email} invitation={invitation} fermer={() => setInvitation(null)} />}
       {suppression && (
         <Modale titre="Supprimer ce membre ?" fermer={() => setSuppression(false)}>
           <p>Le compte de <strong>{m.nom}</strong>, son historique et ses badges seront définitivement effacés. Pour simplement bloquer l'accès, préférez « Désactiver ».</p>

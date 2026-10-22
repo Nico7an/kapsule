@@ -7,7 +7,7 @@ import './styles.css';
 import { FournisseurSession, useSession } from './session';
 import { Chargement, Toasts } from './composants/Divers';
 import { Coquille } from './composants/Coquille';
-import { Connexion, Rejoindre } from './pages/Auth';
+import { Connexion, Creer, Rejoindre } from './pages/Auth';
 import { Apprendre } from './pages/Apprendre';
 import { Lecon } from './pages/Lecon';
 import { Classement } from './pages/Classement';
@@ -16,7 +16,6 @@ import { Tableau } from './pages/admin/Tableau';
 import { Membres, FicheMembre } from './pages/admin/Membres';
 import { Defis, EditeurDefi } from './pages/admin/Defis';
 import { Organisation } from './pages/admin/Organisation';
-import { Plateforme } from './pages/Plateforme';
 
 function Routeur() {
   const { moi, charge } = useSession();
@@ -25,17 +24,8 @@ function Routeur() {
     return (
       <Routes>
         <Route path="/rejoindre/:code" element={<Rejoindre />} />
+        <Route path="/creer" element={<Creer />} />
         <Route path="*" element={<Connexion />} />
-      </Routes>
-    );
-  }
-  if (moi.role === 'superadmin') {
-    return (
-      <Routes>
-        <Route element={<Coquille />}>
-          <Route path="/plateforme" element={<Plateforme />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/plateforme" replace />} />
       </Routes>
     );
   }
@@ -57,6 +47,8 @@ function Routeur() {
           </>
         )}
       </Route>
+      {/* Juste après la création d'une organisation : direction l'invitation de l'équipe. */}
+      <Route path="/creer" element={<Navigate to={moi.role === 'admin' ? '/admin/membres' : '/'} replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

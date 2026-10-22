@@ -144,7 +144,7 @@ export function Lecon() {
               <>
                 <Mascotte humeur={humeur} taille={76} className="mascotte-verdict" />
                 <div role="status">
-                  <h3>{correction.compromis ? 'Système compromis !' : message}</h3>
+                  <h3>{correction.compromis ? 'Boucliers épuisés !' : message}</h3>
                   {correction.explication && <p>{correction.explication}</p>}
                 </div>
               </>
@@ -243,8 +243,8 @@ function EcranBilan({ bilan, partie, rejouer }: { bilan: Bilan; partie: Partie; 
         <div className="resultat-carte">
           <div className="compromis-bandeau hachures-rouges" />
           <Mascotte humeur="compromis" taille={150} />
-          <h1>Système compromis</h1>
-          <p className="discret" style={{ fontSize: 18 }}>Trois erreurs, les boucliers ont cédé. Chaque erreur ici, c'est un vrai piège évité plus tard. On remet ça ?</p>
+          <h1>Boucliers épuisés</h1>
+          <p className="discret" style={{ fontSize: 18 }}>Trois erreurs, la leçon s'arrête là. Relisez les explications et retentez : c'est en se trompant qu'on retient. On remet ça ?</p>
           <div className="tuiles">
             <div className="tuile c-rouge"><div>Bonnes</div><div>{bilan.correct}/{bilan.total}</div></div>
             <div className="tuile"><div>XP</div><div>+{bilan.xp.gagne}</div></div>

@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { exigerAdmin } from '../gardes.js';
 import { transaction } from '../db.js';
 import { hacherMotDePasse, motDePasseTemporaire, codeInvitation, creerOtp } from '../auth.js';
-import { validerQuestions, ErreurValidation } from '../contenu/index.js';
+import { validerQuestions, ErreurValidation, categorieDe } from '../contenu/index.js';
 import { niveau, serieEffective, jourLocal, BADGES } from '../jeu.js';
 import { parcoursVisibles, classementSemaine, progression, debutSemaine } from '../requetes.js';
 import { AVATARS, emailValide, verifierNom } from './auth.js';
@@ -169,10 +169,10 @@ export default async function routesAdmin(app) {
       .run(req.user.org_id, emailNormalise, nom.trim(), role, AVATARS[Math.floor(Math.random() * AVATARS.length)]);
     
     const code = creerOtp(db, { email: emailNormalise, type: 'invitation', orgId: req.user.org_id, invitedBy: req.user.id });
-    const baseUrl = process.env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const baseUrl = process.env.KAPSULE_URL || `${req.protocol}://${req.host}`;
     const lien = `${baseUrl}/?email=${encodeURIComponent(emailNormalise)}&code=${code}`;
 
-    await envoyerInvitationMembre({
+    const envoi = await envoyerInvitationMembre({
       email: emailNormalise,
       nom: nom.trim(),
       organisation: org?.name || 'Votre organisation',
@@ -184,7 +184,7 @@ export default async function routesAdmin(app) {
     return reply.code(201).send({
       id: Number(lastInsertRowid),
       code,
-      motDePasseTemporaire: code,
+      emailEnvoye: envoi.ok,
       ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}),
     });
   });
@@ -194,10 +194,10 @@ export default async function routesAdmin(app) {
     if (!u) return reply.code(404).send({ erreur: 'Membre introuvable' });
     const org = db.prepare('SELECT name FROM orgs WHERE id = ?').get(req.user.org_id);
     const code = creerOtp(db, { email: u.email, type: 'invitation', orgId: req.user.org_id, invitedBy: req.user.id });
-    const baseUrl = process.env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const baseUrl = process.env.KAPSULE_URL || `${req.protocol}://${req.host}`;
     const lien = `${baseUrl}/?email=${encodeURIComponent(u.email)}&code=${code}`;
 
-    await envoyerInvitationMembre({
+    const envoi = await envoyerInvitationMembre({
       email: u.email,
       nom: u.name,
       organisation: org?.name || 'Votre organisation',
@@ -206,7 +206,7 @@ export default async function routesAdmin(app) {
       lienConnexion: lien,
     });
 
-    return { ok: true, email: u.email, code, ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}) };
+    return { ok: true, email: u.email, code, emailEnvoye: envoi.ok, ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}) };
   });
 
   app.patch('/membres/:id', async (req, reply) => {
@@ -260,7 +260,7 @@ export default async function routesAdmin(app) {
       lignes.push([v.nom, v.email, v.role === 'admin' ? 'Admin' : 'Apprenant', v.desactive ? 'Désactivé' : 'Actif', v.xp, v.niveau, v.serie, v.lecons, v.parties, v.precision ?? '', v.derniereActivite ?? '', v.inscrit]);
     }
     reply.header('Content-Type', 'text/csv; charset=utf-8');
-    reply.header('Content-Disposition', `attachment; filename="cyber-membres-${jourLocal()}.csv"`);
+    reply.header('Content-Disposition', `attachment; filename="kapsule-membres-${jourLocal()}.csv"`);
     return '﻿' + lignes.map((l) => l.map(champ).join(';')).join('\r\n');
   });
 
@@ -348,6 +348,59 @@ export default async function routesAdmin(app) {
     const l = defi(req, req.params.id);
     if (!l) return reply.code(404).send({ erreur: 'Défi introuvable' });
     db.prepare('DELETE FROM lessons WHERE id = ?').run(l.id);
+    return { ok: true };
+  });
+
+  // --- Défis standard (catalogue commun) --------------------------------------------------
+  // Une organisation peut supprimer un parcours ou une leçon du catalogue : ils
+  // disparaissent pour ses membres seulement. L'historique (tentatives, XP) est
+  // conservé, ce qui permet de restaurer à l'identique.
+
+  app.get('/catalogue', async (req) => {
+    const org = req.user.org_id;
+    const masques = db.prepare('SELECT kind, target_id FROM org_hidden WHERE org_id = ?').all(org);
+    const estMasque = (kind, id) => masques.some((m) => m.kind === kind && m.target_id === id);
+    const lecons = db.prepare('SELECT id, path_id, unit, title, questions FROM lessons WHERE org_id IS NULL AND published = 1 ORDER BY position').all();
+    return db.prepare('SELECT * FROM paths WHERE org_id IS NULL ORDER BY position, title').all()
+      .map((p) => ({
+        id: p.id, titre: p.title, description: p.description, couleur: p.color, icone: p.icon, categorie: categorieDe(p),
+        supprime: estMasque('path', p.id),
+        lecons: lecons.filter((l) => l.path_id === p.id)
+          .map((l) => ({ id: l.id, titre: l.title, unite: l.unit, nbQuestions: JSON.parse(l.questions).length, supprimee: estMasque('lesson', l.id) })),
+      }))
+      .filter((p) => p.lecons.length);
+  });
+
+  const CIBLES = {
+    parcours: { kind: 'path', existe: (id) => db.prepare('SELECT 1 FROM paths WHERE id = ? AND org_id IS NULL').get(id),
+      lecons: (id) => db.prepare('SELECT id FROM lessons WHERE path_id = ?').all(id).map((l) => l.id) },
+    lecons: { kind: 'lesson', existe: (id) => db.prepare('SELECT 1 FROM lessons WHERE id = ? AND org_id IS NULL').get(id), lecons: (id) => [id] },
+  };
+
+  const cible = (req, reply) => {
+    const c = CIBLES[req.params.type];
+    const id = String(req.params.id);
+    if (!c || !c.existe(id)) { reply.code(404).send({ erreur: 'Contenu introuvable' }); return null; }
+    return { ...c, id };
+  };
+
+  app.delete('/catalogue/:type/:id', async (req, reply) => {
+    const c = cible(req, reply);
+    if (!c) return;
+    const org = req.user.org_id;
+    transaction(db, () => {
+      db.prepare('INSERT OR IGNORE INTO org_hidden (org_id, kind, target_id) VALUES (?, ?, ?)').run(org, c.kind, c.id);
+      // Les parties en cours sur ce contenu ne peuvent plus aboutir.
+      const fin = db.prepare('DELETE FROM runs WHERE org_id = ? AND lesson_id = ? AND finished = 0');
+      for (const l of c.lecons(c.id)) fin.run(org, l);
+    });
+    return { ok: true };
+  });
+
+  app.post('/catalogue/:type/:id/restaurer', async (req, reply) => {
+    const c = cible(req, reply);
+    if (!c) return;
+    db.prepare('DELETE FROM org_hidden WHERE org_id = ? AND kind = ? AND target_id = ?').run(req.user.org_id, c.kind, c.id);
     return { ok: true };
   });
 

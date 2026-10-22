@@ -1,7 +1,7 @@
 import { randomBytes, randomInt, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 
 const SESSION_JOURS = 30;
-export const COOKIE = 'cyber_session';
+export const COOKIE = 'kapsule_session';
 
 export function hacherMotDePasse(mdp) {
   const sel = randomBytes(16);
@@ -44,7 +44,8 @@ export function creerOtp(db, { email, type = 'connexion', orgId = null, invitedB
 /** Valide un code OTP et le consomme immédiatement. */
 export function validerOtp(db, { email, code, type }) {
   const e = String(email || '').trim().toLowerCase();
-  const c = String(code || '').trim().replace(/\s+/g, '');
+  // Seuls les chiffres comptent : un copier-coller « 123 456 » ou avec du texte autour passe.
+  const c = String(code || '').replace(/\D/g, '');
   if (!e || !c || c.length !== 6) throw new Error('Code invalide');
 
   const maintenant = Date.now();
@@ -52,9 +53,11 @@ export function validerOtp(db, { email, code, type }) {
 
   let requete = 'SELECT * FROM otp_codes WHERE email = ? AND expires_at > ?';
   const params = [e, maintenant];
+  // Un code ne vaut que pour l'usage prévu (un code d'inscription n'ouvre pas de session).
   if (type) {
-    requete += ' AND type = ?';
-    params.push(type);
+    const types = [type].flat();
+    requete += ` AND type IN (${types.map(() => '?').join(', ')})`;
+    params.push(...types);
   }
   requete += ' ORDER BY id DESC LIMIT 1';
 

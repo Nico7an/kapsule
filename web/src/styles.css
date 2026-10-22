@@ -1,4 +1,4 @@
-/* Cyber — signalétique de sécurité façon autocollants d'arcade.
+/* Kapsule — signalétique façon autocollants d'arcade.
    Papier chaud, encre presque noire, jaune « signal » comme seul accent de
    marque ; vert et rouge réservés aux réponses ; couleurs de parcours en aplat.
    Pas de dégradés de couleur ni de halos : des contours francs et des ombres
@@ -208,6 +208,30 @@ select.saisie { appearance: none; padding-right: 36px; background-image: url("da
 .jauge.jauge-zero > i { border-right: 0; }
 .jauge-fine { height: 12px; }
 
+/* --- Sélecteur de catégories (page Apprendre) --------------------------------------------- */
+.categories { display: grid; gap: 14px; margin-bottom: 28px; padding: 16px; background: var(--carte); border: var(--trait) solid var(--encre); border-radius: var(--r-l); }
+.famille { display: grid; gap: 8px; }
+.famille-titre { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--encre-3); }
+.famille-puces { display: flex; flex-wrap: wrap; gap: 8px; }
+.puce-categorie {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 6px 10px 6px 12px;
+  background: var(--papier); color: var(--encre); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+  border: var(--trait) solid var(--encre); border-radius: 10px; box-shadow: 0 3px 0 var(--encre);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.puce-categorie:hover { background: var(--papier-2); }
+.puce-categorie:active { transform: translateY(3px); box-shadow: 0 0 0 var(--encre); }
+.puce-categorie.active { background: var(--jaune); }
+.puce-categorie .compte { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--encre); color: var(--carte); }
+.puce-categorie .compte.fini { background: var(--vert); color: var(--encre); }
+@media (max-width: 760px) {
+  .categories { padding: 12px; margin-bottom: 20px; }
+  /* Une ligne défilante par famille plutôt qu'un mur de puces. */
+  .famille-puces { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px; padding: 0 12px 6px; scrollbar-width: none; }
+  .famille-puces::-webkit-scrollbar { display: none; }
+  .puce-categorie { flex: none; }
+}
+
 /* --- Carte du parcours (chemin façon jeu) ------------------------------------------------- */
 .entete-parcours {
   display: flex; align-items: center; gap: 16px; padding: 18px 20px; margin: 28px 0 8px;
@@ -274,6 +298,7 @@ select.saisie { appearance: none; padding-right: 36px; background-image: url("da
   background: var(--carte); border: var(--trait) solid var(--encre); border-radius: var(--r); box-shadow: 0 4px 0 var(--encre);
   font-weight: 600; font-size: 17px; line-height: 1.3; cursor: pointer; transition: transform 80ms, box-shadow 80ms, background-color 120ms;
 }
+.choix button.juste { padding-right: 48px; } /* place pour la coche */
 .choix button:hover:not(:disabled) { background: #fff8d6; }
 .choix button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--encre); }
 .choix button.choisi { background: #fff3b0; border-color: var(--encre); box-shadow: 0 4px 0 var(--encre), inset 0 0 0 3px var(--jaune); }
@@ -472,6 +497,7 @@ table.tableau { width: 100%; border-collapse: separate; border-spacing: 0; font-
 .toast { position: fixed; z-index: 60; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: var(--encre); color: var(--jaune); border-radius: 14px; font-weight: 700; box-shadow: var(--ombre-s); animation: pop 260ms; max-width: calc(100vw - 32px); }
 @media (max-width: 760px) { .toast { bottom: 96px; } }
 .selecteur-avatars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+@media (max-width: 440px) { .selecteur-avatars { grid-template-columns: repeat(4, 1fr); justify-items: center; } }
 .selecteur-avatars button { aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; }
 .selecteur-avatars button.actif .avatar { box-shadow: 0 0 0 4px var(--jaune), 0 0 0 6.5px var(--encre); }
 .mini-barres { display: flex; align-items: flex-end; gap: 8px; height: 110px; }
@@ -494,3 +520,18 @@ table.tableau { width: 100%; border-collapse: separate; border-spacing: 0; font-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
+
+/* Séparateur « Pas encore de compte ? » sous le formulaire de connexion */
+.separateur-auth { display: flex; align-items: center; gap: 12px; margin-top: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--encre-3); }
+.separateur-auth::before, .separateur-auth::after { content: ''; flex: 1; border-top: 2px dashed var(--encre-3); }
+
+/* Défis standard (admin) */
+.parcours-standard { padding: 12px 14px; }
+.parcours-standard.supprime { background: var(--papier-2); }
+.parcours-standard.supprime .parcours-standard-titre strong { color: var(--encre-3); text-decoration: line-through; }
+.parcours-standard-entete { flex-wrap: wrap; }
+.pastille-icone { display: inline-grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; border: var(--trait) solid var(--encre); background: var(--c); color: var(--c-texte); }
+.parcours-standard-titre { flex: 1; min-width: 180px; display: grid; gap: 2px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.lecons-standard { list-style: none; margin: 12px 0 0; padding: 0; display: grid; }
+.lecons-standard li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 8px 52px; border-top: 1.5px solid var(--gris); }
+.lecons-standard li.supprimee strong { color: var(--encre-3); text-decoration: line-through; }

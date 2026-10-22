@@ -29,8 +29,8 @@ FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
-    CYBER_DB=/data/cyber.db \
-    CYBER_STATIQUES=/app/web/dist \
+    KAPSULE_DB=/data/kapsule.db \
+    KAPSULE_STATIQUES=/app/web/dist \
     TZ=Europe/Paris
 
 COPY --from=build /app/server/node_modules ./server/node_modules/

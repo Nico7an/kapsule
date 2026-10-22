@@ -16,8 +16,8 @@ export function FournisseurSession({ children }: { children: ReactNode }) {
   useEffect(() => {
     void rafraichir();
     const f = () => definir(null);
-    window.addEventListener('cyber:deconnecte', f);
-    return () => window.removeEventListener('cyber:deconnecte', f);
+    window.addEventListener('kapsule:deconnecte', f);
+    return () => window.removeEventListener('kapsule:deconnecte', f);
   }, [rafraichir, definir]);
   return <Ctx.Provider value={{ moi, charge, rafraichir, definir }}>{children}</Ctx.Provider>;
 }

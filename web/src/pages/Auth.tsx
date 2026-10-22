@@ -9,14 +9,17 @@ import { Logo } from '../composants/Coquille';
 import { toast } from '../composants/Divers';
 import type { Moi } from '../types';
 
+/** Ne garde que les 6 premiers chiffres : on peut coller « 123 456 » ou une ligne entière du mail. */
+const chiffresCode = (s: string) => s.replace(/\D/g, '').slice(0, 6);
+
 function Vitrine() {
   return (
     <section className="vitrine">
       <div className="ruban haut hachures" />
       <Mascotte humeur="fier" taille={140} className="mascotte-vitrine" />
-      <h1>La cyber&shy;sécurité, en 3&nbsp;minutes par jour.</h1>
+      <h1>Toute la boîte, en 3&nbsp;minutes par jour.</h1>
       <div className="arguments">
-        <div><span><Icone nom="cible" /></span>Des leçons éclair, des pièges plus vrais que nature</div>
+        <div><span><Icone nom="cible" /></span>Des capsules éclair : métiers, droit des sociétés, cybersécurité</div>
         <div><span><Icone nom="flamme" couleur="var(--orange)" epaisseur={2} /></span>Des séries, des badges, des niveaux</div>
         <div><span><Icone nom="podium" /></span>Un classement avec vos collègues</div>
       </div>
@@ -80,7 +83,7 @@ export function Connexion() {
     if (!code.trim()) return;
     setEnvoi(true); setErreur('');
     try {
-      const m = await api.post<Moi>('/auth/valider-code', { email: email.trim(), code: code.trim().replace(/\s+/g, '') });
+      const m = await api.post<Moi>('/auth/valider-code', { email: email.trim(), code });
       definir(m);
     } catch (err) {
       setErreur((err as Error).message);
@@ -117,29 +120,10 @@ export function Connexion() {
           <button className="btn btn-jaune btn-large" disabled={envoi || !email.trim()}>
             {envoi ? 'Envoi du code…' : 'Recevoir mon code →'}
           </button>
-          <div style={{ marginTop: 14, padding: 12, background: 'var(--carte-fond, #FFF)', border: '2px solid var(--bordure, #111)', borderRadius: 12, fontSize: 13 }}>
-            <span style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--texte-discret)' }}>Comptes préconfigurés :</span>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-petit btn-secondaire"
-                style={{ fontSize: 12, padding: '4px 10px' }}
-                onClick={() => { setEmail('admin@plateforme.local'); setErreur(''); }}
-              >
-                🛡️ Plateforme (admin@plateforme.local)
-              </button>
-              <button
-                type="button"
-                className="btn btn-petit btn-secondaire"
-                style={{ fontSize: 12, padding: '4px 10px' }}
-                onClick={() => { setEmail('admin@demo.local'); setErreur(''); }}
-              >
-                🏢 Démo (admin@demo.local)
-              </button>
-            </div>
-          </div>
-          <p className="tres-discret" style={{ fontSize: 13.5, textAlign: 'center', lineHeight: 1.4, marginTop: 8 }}>
-            Pas encore inscrit ? Rejoignez votre organisation via le lien partagé par votre administrateur.
+          <div className="separateur-auth"><span>Pas encore de compte ?</span></div>
+          <Link to="/creer" className="btn btn-large">Créer mon organisation</Link>
+          <p className="tres-discret" style={{ fontSize: 13.5, textAlign: 'center', lineHeight: 1.4, margin: 0 }}>
+            Votre organisation est déjà sur Kapsule ? Rejoignez-la via le lien partagé par votre administrateur.
           </p>
         </form>
       ) : (
@@ -153,9 +137,6 @@ export function Connexion() {
             <p className="discret" style={{ fontSize: 14.5, margin: 0 }}>
               Un code temporaire à 6 chiffres a été envoyé à <strong>{email}</strong>.
             </p>
-            <p className="tres-discret" style={{ fontSize: 12, margin: '8px 0 0', color: '#585D6B', background: '#FFF9D2', padding: '6px 10px', borderRadius: 8, border: '1px solid #111215' }}>
-              ℹ️ Si l'e-mail tarde ou en cas d'indisponibilité SMTP, le code s'affiche également dans : <code style={{ fontWeight: 800 }}>docker logs cyber</code>
-            </p>
           </div>
           {erreur && <div className="erreur-form" role="alert">{erreur}</div>}
           <label className="champ">
@@ -165,11 +146,10 @@ export function Connexion() {
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="123 456"
-              maxLength={7}
+              placeholder="123456"
               style={{ fontSize: 30, textAlign: 'center', letterSpacing: '0.22em', fontWeight: 800, padding: '14px' }}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(chiffresCode(e.target.value))}
               required
               autoFocus
             />
@@ -238,7 +218,7 @@ export function Rejoindre() {
     if (!otp.trim()) return;
     setEnvoi(true); setErreur('');
     try {
-      const m = await api.post<Moi>('/auth/valider-inscription', { email: email.trim(), code: otp.trim().replace(/\s+/g, '') });
+      const m = await api.post<Moi>('/auth/valider-inscription', { email: email.trim(), code: otp });
       toast(`Bienvenue dans l'équipe, ${m.nom} !`);
       definir(m);
     } catch (err) {
@@ -320,11 +300,10 @@ export function Rejoindre() {
               className="saisie mono"
               type="text"
               inputMode="numeric"
-              placeholder="123 456"
-              maxLength={7}
+              placeholder="123456"
               style={{ fontSize: 30, textAlign: 'center', letterSpacing: '0.22em', fontWeight: 800, padding: '14px' }}
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(e) => setOtp(chiffresCode(e.target.value))}
               required
               autoFocus
             />
@@ -346,6 +325,133 @@ export function Rejoindre() {
               className="btn btn-fantome btn-petit"
               onClick={() => { setEtape('formulaire'); setOtp(''); setErreur(''); }}
             >
+              Modifier mes infos
+            </button>
+          </div>
+        </form>
+      )}
+    </Cadre>
+  );
+}
+
+export function Creer() {
+  const { definir } = useSession();
+  const [etape, setEtape] = useState<'formulaire' | 'code'>('formulaire');
+  const [organisation, setOrganisation] = useState('');
+  const [nom, setNom] = useState('');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [avatar, setAvatar] = useState(AVATARS[Math.floor(Math.random() * AVATARS.length)]);
+  const [erreur, setErreur] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+
+  const demanderCode = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!organisation.trim() || !nom.trim() || !email.trim()) return;
+    setEnvoi(true); setErreur('');
+    try {
+      await api.post('/auth/demander-creation', { organisation: organisation.trim(), nom: nom.trim(), email: email.trim(), avatar });
+      setEtape('code');
+      toast('Code envoyé par e-mail');
+    } catch (err) {
+      setErreur((err as Error).message);
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  const valider = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!otp.trim()) return;
+    setEnvoi(true); setErreur('');
+    try {
+      const m = await api.post<Moi>('/auth/valider-creation', { email: email.trim(), code: otp });
+      toast(`L'espace ${organisation.trim()} est prêt : invitez votre équipe !`);
+      definir(m); // le routeur connecté envoie alors /creer vers la page Membres
+    } catch (err) {
+      setErreur((err as Error).message);
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  return (
+    <Cadre>
+      {etape === 'formulaire' ? (
+        <form onSubmit={demanderCode}>
+          <Logo />
+          <div>
+            <h2 style={{ fontSize: 30, marginBottom: 6 }}>Créer votre organisation</h2>
+            <p className="discret" style={{ fontSize: 14.5, margin: 0 }}>
+              Ouvrez l'espace de votre équipe en une minute : vous en serez l'administrateur et pourrez inviter vos collègues.
+            </p>
+          </div>
+          {erreur && <div className="erreur-form" role="alert">{erreur}</div>}
+          <label className="champ">
+            <span>Nom de l'organisation</span>
+            <input className="saisie" value={organisation} onChange={(e) => setOrganisation(e.target.value)} maxLength={80} required autoFocus autoComplete="organization" placeholder="Ex. : Mairie de Saint-Lô, Atelier Durand…" />
+          </label>
+          <div className="champ">
+            <span>Votre avatar</span>
+            <div className="selecteur-avatars">
+              {AVATARS.map((a) => (
+                <button type="button" key={a} className={a === avatar ? 'actif' : ''} onClick={() => setAvatar(a)} aria-label={a} aria-pressed={a === avatar}>
+                  <Avatar nom={a} taille={52} />
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="champ">
+            <span>Votre prénom et nom</span>
+            <input className="saisie" value={nom} onChange={(e) => setNom(e.target.value)} maxLength={60} required autoComplete="name" />
+          </label>
+          <label className="champ">
+            <span>Votre adresse e-mail professionnelle</span>
+            <input className="saisie" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="prenom.nom@entreprise.com" />
+          </label>
+          <button className="btn btn-jaune btn-large" disabled={envoi}>
+            {envoi ? 'Envoi du code…' : 'Recevoir mon code →'}
+          </button>
+          <p className="tres-discret" style={{ fontSize: 14, textAlign: 'center' }}>
+            Déjà inscrit ? <Link to="/">Se connecter</Link>
+          </p>
+        </form>
+      ) : (
+        <form onSubmit={valider}>
+          <Logo />
+          <div>
+            <div className="pastille pastille-jaune" style={{ marginBottom: 10 }}>
+              <Icone nom="cadenas" taille={16} />{organisation.trim()}
+            </div>
+            <h2 style={{ fontSize: 30 }}>Confirmez votre e-mail</h2>
+            <p className="discret" style={{ fontSize: 14.5 }}>
+              Un code à 6 chiffres vient d'être envoyé à <strong>{email}</strong>. L'espace sera créé dès sa validation.
+            </p>
+          </div>
+          {erreur && <div className="erreur-form" role="alert">{erreur}</div>}
+          <label className="champ">
+            <span>Code de confirmation</span>
+            <input
+              className="saisie mono"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              style={{ fontSize: 30, textAlign: 'center', letterSpacing: '0.22em', fontWeight: 800, padding: '14px' }}
+              value={otp}
+              onChange={(e) => setOtp(chiffresCode(e.target.value))}
+              required
+              autoFocus
+            />
+          </label>
+          <button className="btn btn-jaune btn-large" disabled={envoi || !otp.trim()}>
+            {envoi ? 'Création de l\'espace…' : 'Créer mon organisation'}
+          </button>
+          <div className="ligne entre" style={{ fontSize: 14, marginTop: 4 }}>
+            <button type="button" className="btn btn-fantome btn-petit" onClick={demanderCode} disabled={envoi}>
+              Renvoyer un code
+            </button>
+            <button type="button" className="btn btn-fantome btn-petit" onClick={() => { setEtape('formulaire'); setOtp(''); setErreur(''); }}>
               Modifier mes infos
             </button>
           </div>

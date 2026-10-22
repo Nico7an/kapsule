@@ -6,16 +6,26 @@ import { Icone } from './Icone';
 import { Modale, toast } from './Divers';
 import type { Moi } from '../types';
 
+/** Marque Kapsule : une gélule inclinée sur un carré d'encre. */
+export function MarqueKapsule({ taille = 40 }: { taille?: number }) {
+  return (
+    <svg width={taille} height={taille} viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="3" y="3" width="58" height="58" rx="16" fill="#15140F" />
+        <g transform="rotate(-38 32 32)">
+          <rect x="21" y="10" width="22" height="44" rx="11" fill="#FFFDF6" />
+          <path d="M21 32V21a11 11 0 0 1 22 0v11z" fill="#FFD60A" />
+          <path d="M21 32h22" stroke="#15140F" strokeWidth="2.5" />
+          <circle cx="28" cy="25" r="2.2" fill="#15140F" /><circle cx="36" cy="25" r="2.2" fill="#15140F" />
+        </g>
+    </svg>
+  );
+}
+
 export function Logo() {
   return (
-    <Link to="/" className="logo" aria-label="Cyber, accueil">
-      <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
-        <rect x="3" y="3" width="58" height="58" rx="16" fill="#15140F" />
-        <path d="M22 30v-6a10 10 0 0 1 20 0v6" fill="none" stroke="#FFD60A" strokeWidth="6" strokeLinecap="round" />
-        <rect x="15" y="28" width="34" height="24" rx="7" fill="#FFD60A" />
-        <circle cx="26" cy="39" r="3" fill="#15140F" /><circle cx="38" cy="39" r="3" fill="#15140F" />
-      </svg>
-      <strong>cyber<i>.</i></strong>
+    <Link to="/" className="logo" aria-label="Kapsule, accueil">
+      <MarqueKapsule />
+      <strong>kapsule<i>.</i></strong>
     </Link>
   );
 }
@@ -66,28 +76,21 @@ export function Coquille() {
   const { moi, definir } = useSession();
   if (!moi) return null;
   const admin = moi.role === 'admin';
-  const plateforme = moi.role === 'superadmin';
   const deconnecter = async () => { await api.post('/auth/deconnexion').catch(() => {}); definir(null); };
 
   return (
     <div className="coquille">
       <nav className="nav-laterale" aria-label="Navigation principale">
         <Logo />
-        {plateforme ? (
-          <NavLink to="/plateforme" className="lien-nav"><Icone nom="globe" />Organisations</NavLink>
-        ) : (
-          <>
-            <NavLink to="/" end className="lien-nav"><Icone nom="maison" />Apprendre</NavLink>
-            <NavLink to="/classement" className="lien-nav"><Icone nom="podium" />Classement</NavLink>
-            <NavLink to="/profil" className="lien-nav"><Icone nom="profil" />Profil</NavLink>
-          </>
-        )}
+        <NavLink to="/" end className="lien-nav"><Icone nom="maison" />Apprendre</NavLink>
+        <NavLink to="/classement" className="lien-nav"><Icone nom="podium" />Classement</NavLink>
+        <NavLink to="/profil" className="lien-nav"><Icone nom="profil" />Profil</NavLink>
         {admin && (
           <>
             <div className="nav-sep">Administration</div>
             <NavLink to="/admin" end className="lien-nav"><Icone nom="tableau" />Tableau de bord</NavLink>
             <NavLink to="/admin/membres" className="lien-nav"><Icone nom="membres" />Membres</NavLink>
-            <NavLink to="/admin/defis" className="lien-nav"><Icone nom="crayon" />Défis maison</NavLink>
+            <NavLink to="/admin/defis" className="lien-nav"><Icone nom="crayon" />Défis</NavLink>
             <NavLink to="/admin/organisation" className="lien-nav"><Icone nom="reglages" />Organisation</NavLink>
           </>
         )}
@@ -98,31 +101,20 @@ export function Coquille() {
       </nav>
 
       <div className="principal">
-        {!plateforme && (
-          <header className="barre-haut">
+        <header className="barre-haut">
             <Link to="/" aria-label="Accueil" style={{ display: 'flex' }}>
-              <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><rect x="3" y="3" width="58" height="58" rx="16" fill="#15140F" /><path d="M22 30v-6a10 10 0 0 1 20 0v6" fill="none" stroke="#FFD60A" strokeWidth="6" strokeLinecap="round" /><rect x="15" y="28" width="34" height="24" rx="7" fill="#FFD60A" /></svg>
+              <MarqueKapsule taille={34} />
             </Link>
             <Compteurs moi={moi} />
           </header>
-        )}
         <Outlet />
       </div>
 
       <nav className="nav-mobile" aria-label="Navigation">
-        {plateforme ? (
-          <>
-            <NavLink to="/plateforme"><Icone nom="globe" />Orgas</NavLink>
-            <a href="#" onClick={(e) => { e.preventDefault(); void deconnecter(); }}><Icone nom="sortie" />Sortir</a>
-          </>
-        ) : (
-          <>
-            <NavLink to="/" end><Icone nom="maison" />Apprendre</NavLink>
-            <NavLink to="/classement"><Icone nom="podium" />Classement</NavLink>
-            <NavLink to="/profil"><Icone nom="profil" />Profil</NavLink>
-            {admin && <NavLink to="/admin"><Icone nom="tableau" />Admin</NavLink>}
-          </>
-        )}
+        <NavLink to="/" end><Icone nom="maison" />Apprendre</NavLink>
+        <NavLink to="/classement"><Icone nom="podium" />Classement</NavLink>
+        <NavLink to="/profil"><Icone nom="profil" />Profil</NavLink>
+        {admin && <NavLink to="/admin"><Icone nom="tableau" />Admin</NavLink>}
       </nav>
       {moi.doitChangerMotDePasse && <ChangementObligatoire moi={moi} />}
     </div>

@@ -1,7 +1,7 @@
 // Règles du jeu : XP, niveaux, rangs, séries quotidiennes et badges.
 // Tout est calculé ici, côté serveur, pour que les classements soient fiables.
 
-export const BOUCLIERS = 3; // erreurs tolérées avant « système compromis »
+export const BOUCLIERS = 3; // erreurs tolérées avant l’échec de la leçon (« boucliers épuisés »)
 
 // --- Calendrier (Europe/Paris) -----------------------------------------------
 
@@ -71,7 +71,7 @@ export const RANGS = [
   { min: 7, nom: 'Analyste' },
   { min: 10, nom: 'Spécialiste' },
   { min: 14, nom: 'Stratège' },
-  { min: 18, nom: 'Légende cyber' },
+  { min: 18, nom: 'Légende' },
 ];
 
 export function rang(n) {

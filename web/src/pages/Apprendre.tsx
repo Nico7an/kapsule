@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../api';
 import { useSession } from '../session';
-import type { NoeudLecon, Parcours } from '../types';
+import type { Categorie, NoeudLecon, Parcours } from '../types';
 import { Icone } from '../composants/Icone';
 import { Mascotte } from '../composants/Mascotte';
 import { Chargement, Etoiles } from '../composants/Divers';
@@ -12,17 +12,35 @@ import { Compteurs } from '../composants/Coquille';
 // Décalage horizontal des nœuds : le chemin serpente comme une piste de jeu.
 const SERPENTIN = [0, 56, 84, 56, 0, -56, -84, -56];
 
+// Catégorie choisie, retenue dans ce navigateur (confort seulement : le
+// stockage peut être indisponible, on retombe alors sur la première).
+const CLE_CATEGORIE = 'kapsule:categorie';
+const lireCategorie = () => { try { return localStorage.getItem(CLE_CATEGORIE); } catch { return null; } };
+const retenirCategorie = (id: string) => { try { localStorage.setItem(CLE_CATEGORIE, id); } catch { /* sans stockage */ } };
+
 export function Apprendre() {
   const { moi } = useSession();
   const [parcours, setParcours] = useState<Parcours[] | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [classement, setClassement] = useState<string | null>(null);
+  const [categorieChoisie, setCategorieChoisie] = useState<string | null>(lireCategorie);
   const actuelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { api.get<Parcours[]>('/parcours').then(setParcours); }, []);
 
-  // Première leçon ouverte et pas encore réussie : c'est « la suivante ».
-  const suivante = parcours?.flatMap((p) => p.lecons).find((l) => l.ouverte && !l.reussie)?.id;
+  // Catégories dans l'ordre du catalogue, avec leur avancement.
+  const categories: (Categorie & { faites: number; total: number })[] = [];
+  for (const p of parcours ?? []) {
+    let c = categories.find((x) => x.id === p.categorie.id);
+    if (!c) categories.push(c = { ...p.categorie, faites: 0, total: 0 });
+    c.faites += p.faites; c.total += p.total;
+  }
+  const categorie = categories.find((c) => c.id === categorieChoisie) ?? categories[0];
+  const visibles = parcours?.filter((p) => p.categorie.id === categorie?.id) ?? [];
+  const choisir = (id: string) => { setCategorieChoisie(id); retenirCategorie(id); setOuvert(null); };
+
+  // Première leçon ouverte et pas encore réussie de la catégorie : c'est « la suivante ».
+  const suivante = visibles.flatMap((p) => p.lecons).find((l) => l.ouverte && !l.reussie)?.id;
 
   useEffect(() => {
     if (suivante && actuelRef.current) actuelRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -36,8 +54,8 @@ export function Apprendre() {
   const fermerClassement = useCallback(() => setClassement(null), []);
 
   if (!parcours || !moi) return <Chargement />;
-  const total = parcours.reduce((n, p) => n + p.total, 0);
-  const faites = parcours.reduce((n, p) => n + p.faites, 0);
+  const total = visibles.reduce((n, p) => n + p.total, 0);
+  const faites = visibles.reduce((n, p) => n + p.faites, 0);
 
   return (
     <div className="page">
@@ -49,7 +67,8 @@ export function Apprendre() {
               <p className="discret">{faites === 0 ? 'Votre première leçon vous attend.' : `${faites} leçon${faites > 1 ? 's' : ''} sur ${total} réussie${faites > 1 ? 's' : ''}. On continue ?`}</p>
             </div>
           </div>
-          {parcours.map((p) => {
+          <SelecteurCategories categories={categories} active={categorie?.id} choisir={choisir} />
+          {visibles.map((p) => {
             let unite = '';
             return (
               <section key={p.id} className={`c-${p.couleur}`}>
@@ -84,8 +103,8 @@ export function Apprendre() {
           {faites === total && total > 0 && (
             <div className="carte carte-pad vide" style={{ marginTop: 32 }}>
               <Mascotte humeur="fier" />
-              <h2>Tout est bouclé !</h2>
-              <p className="discret">Rejouez les leçons pour décrocher les trois étoiles, ou gardez votre série en vie.</p>
+              <h2>Catégorie bouclée !</h2>
+              <p className="discret">Explorez une autre catégorie, ou rejouez ces leçons pour décrocher les trois étoiles.</p>
             </div>
           )}
         </main>
@@ -98,6 +117,34 @@ export function Apprendre() {
       </div>
       {classement && <ModaleClassementLecon id={classement} fermer={fermerClassement} />}
     </div>
+  );
+}
+
+function SelecteurCategories({ categories, active, choisir }: {
+  categories: (Categorie & { faites: number; total: number })[]; active?: string; choisir: (id: string) => void;
+}) {
+  if (categories.length < 2) return null;
+  const familles = [...new Set(categories.map((c) => c.famille))];
+  return (
+    <nav className="categories" aria-label="Catégories">
+      {familles.map((f) => (
+        <div key={f} className="famille">
+          <div className="famille-titre">{f}</div>
+          <div className="famille-puces">
+            {categories.filter((c) => c.famille === f).map((c) => (
+              <button
+                key={c.id} type="button" className={`puce-categorie${c.id === active ? ' active' : ''}`}
+                aria-pressed={c.id === active} onClick={() => choisir(c.id)}
+              >
+                <Icone nom={c.icone} taille={18} />
+                <span>{c.titre}</span>
+                <span className={`compte${c.total && c.faites === c.total ? ' fini' : ''}`}>{c.faites}/{c.total}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
   );
 }
 

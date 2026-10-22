@@ -1,49 +1,58 @@
-# Stack « cyber » — plateforme d'apprentissage et de sensibilisation à la cybersécurité.
+# Stack « kapsule » — comprendre toute la boîte, une capsule de 3 minutes à la
+# fois : métiers, droit des sociétés, cybersécurité.
 #
 # Architecture à conteneur unique :
 # - Fastify sert l'API et l'application React/Vite compilée
 # - Base de données SQLite intégrée sur volume persistant (/data)
-# - Authentification passwordless par e-mail (OTP sécurisé à 6 chiffres)
-# - E-mails transactionnels soignés (invitations, codes de connexion)
+# - Authentification sans mot de passe par code envoyé par e-mail
 #
 # L'image est construite via scripts/deployer.sh ou docker-compose.build.yml.
 # Portainer gère la stack via son éditeur Web ou l'API Portainer.
 
-name: cyber
+name: kapsule
 
 services:
-  cyber:
-    image: ${CYBER_IMAGE:-cyber:latest}
-    container_name: cyber
+  kapsule:
+    image: ${KAPSULE_IMAGE:-kapsule:latest}
+    container_name: kapsule
     restart: unless-stopped
     environment:
       PORT: 3000
-      CYBER_DB: /data/cyber.db
-      CYBER_URL: ${CYBER_URL:-https://cyber.nico7an.fr}
-      CYBER_ADMIN_EMAIL: ${CYBER_ADMIN_EMAIL:-admin@plateforme.local}
-      CYBER_DEMO_EMAIL: ${CYBER_DEMO_EMAIL:-admin@demo.local}
-      CYBER_COOKIE_SECURISE: ${CYBER_COOKIE_SECURISE:-1}
+      KAPSULE_DB: /data/kapsule.db
+      KAPSULE_URL: ${KAPSULE_URL:-https://kapsule.nico7an.fr}
+      KAPSULE_COOKIE_SECURISE: ${KAPSULE_COOKIE_SECURISE:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Paris
-      # Configuration SMTP pour l'envoi des OTP et invitations d'équipe
+      # Configuration SMTP pour l'envoi des codes et invitations
       SMTP_HOST: ${SMTP_HOST:-ssl0.ovh.net}
       SMTP_PORT: ${SMTP_PORT:-465}
       SMTP_SECURE: ${SMTP_SECURE:-true}
-      SMTP_EMAIL: ${SMTP_EMAIL:-no-reply@krateos.fr}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-887LeZbarChibreCouille332--}
-      SMTP_FROM: ${SMTP_FROM:-"Cyber <no-reply@krateos.fr>"}
+      SMTP_EMAIL: ${SMTP_EMAIL:-contact@nico7an.fr}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?SMTP_PASSWORD manquant}
+      SMTP_FROM: ${SMTP_FROM:-"Kapsule <contact@nico7an.fr>"}
     volumes:
-      - /home/nico/Documents/cyber/data:/data
+      - /home/nico/Documents/kapsule/data:/data
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
-      - "traefik.http.routers.cyber-web.rule=Host(`${CYBER_HOST:-cyber.nico7an.fr}`)"
-      - "traefik.http.routers.cyber-web.entrypoints=websecure"
-      - "traefik.http.routers.cyber-web.tls.certresolver=myresolver"
-      - "traefik.http.routers.cyber-web.middlewares=${CYBER_MIDDLEWARES:-tailscale-whitelist@file}"
-      - "traefik.http.services.cyber-web.loadbalancer.server.port=3000"
+      - "traefik.http.routers.kapsule-web.rule=Host(`${KAPSULE_HOST:-kapsule.nico7an.fr}`)"
+      - "traefik.http.routers.kapsule-web.entrypoints=websecure"
+      - "traefik.http.routers.kapsule-web.tls.certresolver=myresolver"
+      - "traefik.http.routers.kapsule-web.middlewares=${KAPSULE_MIDDLEWARES:-public-shield@file}"
+      - "traefik.http.routers.kapsule-web.service=kapsule-web"
+      - "traefik.http.services.kapsule-web.loadbalancer.server.port=3000"
+      # Ancien domaine (l'app s'appelait « Cyber ») : redirection permanente,
+      # pour que les liens déjà envoyés par e-mail continuent de fonctionner.
+      - "traefik.http.routers.kapsule-ancien.rule=Host(`${KAPSULE_ANCIEN_HOST:-cyber.nico7an.fr}`)"
+      - "traefik.http.routers.kapsule-ancien.entrypoints=websecure"
+      - "traefik.http.routers.kapsule-ancien.tls.certresolver=myresolver"
+      - "traefik.http.routers.kapsule-ancien.middlewares=kapsule-redirection"
+      - "traefik.http.routers.kapsule-ancien.service=kapsule-web"
+      - "traefik.http.middlewares.kapsule-redirection.redirectregex.regex=^https?://[^/]+/(.*)"
+      - "traefik.http.middlewares.kapsule-redirection.redirectregex.replacement=https://${KAPSULE_HOST:-kapsule.nico7an.fr}/$${1}"
+      - "traefik.http.middlewares.kapsule-redirection.redirectregex.permanent=true"
 
 networks:
   traefik:

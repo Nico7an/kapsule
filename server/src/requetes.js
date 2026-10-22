@@ -1,17 +1,23 @@
 // Requêtes partagées entre les routes. Chaque fonction prend l'organisation en
 // paramètre explicite : c'est ici que se joue l'étanchéité entre organisations.
 import { niveau, serieEffective, lundi, jourLocal, minuitParisUTC } from './jeu.js';
+import { categorieDe } from './contenu/index.js';
 
 /** Profil public d'un membre, tel que le voient ses collègues. */
 export function profilPublic(u) {
   return { id: u.id, nom: u.name, avatar: u.avatar, xp: u.xp, serie: serieEffective(u), ...niveau(u.xp) };
 }
 
-/** Parcours visibles par une organisation : catalogue commun + ses défis. */
+// Exclut ce que l'organisation a supprimé du catalogue commun (table org_hidden).
+const PARCOURS_MASQUES = `SELECT target_id FROM org_hidden WHERE org_id = ? AND kind = 'path'`;
+const LECONS_MASQUEES = `SELECT target_id FROM org_hidden WHERE org_id = ? AND kind = 'lesson'`;
+
+/** Parcours visibles par une organisation : catalogue commun (moins ce qu'elle a supprimé) + ses défis. */
 export function parcoursVisibles(db, orgId) {
-  const paths = db.prepare(`SELECT * FROM paths WHERE org_id IS NULL OR org_id = ? ORDER BY org_id IS NOT NULL, position, title`).all(orgId);
+  const paths = db.prepare(`SELECT * FROM paths WHERE (org_id IS NULL OR org_id = ?) AND id NOT IN (${PARCOURS_MASQUES})
+    ORDER BY org_id IS NOT NULL, position, title`).all(orgId, orgId);
   const lecons = db.prepare(`SELECT id, path_id, org_id, unit, title, position, questions FROM lessons
-    WHERE published = 1 AND (org_id IS NULL OR org_id = ?) ORDER BY position, title`).all(orgId);
+    WHERE published = 1 AND (org_id IS NULL OR org_id = ?) AND id NOT IN (${LECONS_MASQUEES}) ORDER BY position, title`).all(orgId, orgId);
   return paths
     .map((p) => ({ ...p, lecons: lecons.filter((l) => l.path_id === p.id) }))
     .filter((p) => p.lecons.length);
@@ -19,7 +25,8 @@ export function parcoursVisibles(db, orgId) {
 
 /** Leçon visible par l'organisation, ou null. */
 export function leconVisible(db, orgId, leconId) {
-  return db.prepare(`SELECT * FROM lessons WHERE id = ? AND published = 1 AND (org_id IS NULL OR org_id = ?)`).get(leconId, orgId) ?? null;
+  return db.prepare(`SELECT * FROM lessons WHERE id = ? AND published = 1 AND (org_id IS NULL OR org_id = ?)
+    AND id NOT IN (${LECONS_MASQUEES}) AND path_id NOT IN (${PARCOURS_MASQUES})`).get(leconId, orgId, orgId, orgId) ?? null;
 }
 
 /** Meilleur résultat par leçon pour un joueur. */
@@ -39,14 +46,15 @@ export function arbreJoueur(db, user) {
       const reussie = !!pr?.reussie;
       // Les défis d'organisation sont tous ouverts ; dans le catalogue, une
       // leçon s'ouvre quand la précédente est réussie.
-      const ouverte = p.org_id !== null || precedenteReussie;
+      // Une leçon déjà réussie reste ouverte, même si une leçon a été ajoutée avant elle.
+      const ouverte = p.org_id !== null || precedenteReussie || reussie;
       precedenteReussie = reussie;
       return { id: l.id, titre: l.title, unite: l.unit, nbQuestions: JSON.parse(l.questions).length, etoiles: pr?.etoiles ?? 0, reussie, ouverte };
     });
     const faites = lecons.filter((l) => l.reussie).length;
     return {
       id: p.id, titre: p.title, description: p.description, couleur: p.color, icone: p.icon,
-      defi: p.org_id !== null, lecons, faites, total: lecons.length,
+      categorie: categorieDe(p), defi: p.org_id !== null, lecons, faites, total: lecons.length,
     };
   });
 }

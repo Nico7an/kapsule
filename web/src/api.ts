@@ -9,14 +9,14 @@ async function appel<T>(methode: string, url: string, corps?: unknown): Promise<
     headers: {
       ...(corps !== undefined ? { 'Content-Type': 'application/json' } : {}),
       // Exigé par le serveur sur toute écriture (protection CSRF).
-      ...(methode !== 'GET' ? { 'X-Cyber': '1' } : {}),
+      ...(methode !== 'GET' ? { 'X-Kapsule': '1' } : {}),
     },
     body: corps !== undefined ? JSON.stringify(corps) : undefined,
   });
   const texte = await r.text();
   const donnees = texte ? JSON.parse(texte) : null;
   if (!r.ok) {
-    if (r.status === 401 && !url.startsWith('/auth/')) window.dispatchEvent(new Event('cyber:deconnecte'));
+    if (r.status === 401 && !url.startsWith('/auth/')) window.dispatchEvent(new Event('kapsule:deconnecte'));
     throw new ErreurApi(donnees?.erreur ?? 'Erreur réseau', r.status);
   }
   return donnees as T;

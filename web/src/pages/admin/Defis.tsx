@@ -6,6 +6,13 @@ import { Icone } from '../../composants/Icone';
 import { Chargement, Modale, dateCourte, toast } from '../../composants/Divers';
 import { Mascotte } from '../../composants/Mascotte';
 
+interface LeconStandard { id: string; titre: string; unite: string; nbQuestions: number; supprimee: boolean }
+interface ParcoursStandard {
+  id: string; titre: string; description: string; couleur: string; icone: string;
+  categorie: { id: string; titre: string; famille: string }; supprime: boolean; lecons: LeconStandard[];
+}
+interface Suppression { type: 'parcours' | 'lecons'; id: string; titre: string }
+
 interface ResumeDefi { id: string; titre: string; publie: boolean; nbQuestions: number; misAJour: string; parties: number; joueurs: number; precision: number | null }
 
 export function Defis() {
@@ -15,9 +22,10 @@ export function Defis() {
   return (
     <div className="page">
       <div className="titre-page">
-        <div><div className="sur-titre">Administration</div><h1>Défis maison</h1></div>
+        <div><div className="sur-titre">Administration</div><h1>Défis</h1></div>
         <Link to="/admin/defis/nouveau" className="btn btn-jaune"><Icone nom="plus" taille={20} />Nouveau défi</Link>
       </div>
+      <h2 style={{ marginBottom: 6 }}>Défis maison</h2>
       <p className="discret" style={{ maxWidth: 680, marginBottom: 20 }}>
         Vos propres questionnaires : charte informatique, procédures internes, consignes du moment… Ils apparaissent dans le parcours « Défis maison » de vos membres, avec leur propre classement. Les autres organisations ne les voient pas.
       </p>
@@ -46,7 +54,95 @@ export function Defis() {
           </table>
         </div>
       )}
+      <CatalogueStandard />
     </div>
+  );
+}
+
+/** Défis standard du catalogue commun : l'organisation peut en supprimer (et en restaurer) pour ses membres. */
+function CatalogueStandard() {
+  const [parcours, setParcours] = useState<ParcoursStandard[] | null>(null);
+  const [ouverts, setOuverts] = useState<Set<string>>(new Set());
+  const [aSupprimer, setASupprimer] = useState<Suppression | null>(null);
+  const charger = () => api.get<ParcoursStandard[]>('/admin/catalogue').then(setParcours);
+  useEffect(() => { charger(); }, []);
+  if (!parcours) return <Chargement />;
+
+  const basculer = (id: string) => {
+    const n = new Set(ouverts);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    setOuverts(n);
+  };
+  const supprimer = async (s: Suppression) => {
+    await api.del(`/admin/catalogue/${s.type}/${s.id}`);
+    setASupprimer(null);
+    toast(s.type === 'parcours' ? 'Parcours supprimé pour votre organisation' : 'Leçon supprimée pour votre organisation');
+    charger();
+  };
+  const restaurer = async (type: Suppression['type'], id: string) => {
+    await api.post(`/admin/catalogue/${type}/${id}/restaurer`);
+    toast('Restauré');
+    charger();
+  };
+  const familles = [...new Set(parcours.map((p) => p.categorie.famille))];
+
+  return (
+    <section style={{ marginTop: 36 }}>
+      <h2 style={{ marginBottom: 6 }}>Défis standard</h2>
+      <p className="discret" style={{ maxWidth: 680, marginBottom: 20 }}>
+        Les parcours proposés à toutes les organisations. Supprimez ceux qui ne concernent pas vos équipes : ils disparaissent pour vos membres uniquement, et vous pouvez les restaurer à tout moment sans perdre les résultats.
+      </p>
+      <div className="empile" style={{ gap: 22 }}>
+        {familles.map((f) => (
+          <div key={f} className="empile" style={{ gap: 10 }}>
+            <div className="sur-titre">{f}</div>
+            {parcours.filter((p) => p.categorie.famille === f).map((p) => {
+              const ouvert = ouverts.has(p.id);
+              const restantes = p.lecons.filter((l) => !l.supprimee).length;
+              return (
+                <div key={p.id} className={`carte parcours-standard${p.supprime ? ' supprime' : ''}`}>
+                  <div className="ligne parcours-standard-entete">
+                    <span className={`pastille-icone c-${p.couleur}`}><Icone nom={p.icone} taille={22} /></span>
+                    <button type="button" className="parcours-standard-titre" onClick={() => basculer(p.id)} aria-expanded={ouvert}>
+                      <strong>{p.titre}</strong>
+                      <span className="discret">{p.categorie.titre} · {restantes === p.lecons.length ? `${p.lecons.length} leçons` : `${restantes} / ${p.lecons.length} leçons`}</span>
+                    </button>
+                    {p.supprime && <span className="pastille pastille-rouge">supprimé</span>}
+                    <button type="button" className="btn btn-fantome btn-icone" onClick={() => basculer(p.id)} aria-label={ouvert ? 'Masquer les leçons' : 'Voir les leçons'}>
+                      <Icone nom="fleche" taille={18} style={{ transform: `rotate(${ouvert ? -90 : 90}deg)` }} />
+                    </button>
+                    {p.supprime
+                      ? <button type="button" className="btn btn-petit" onClick={() => restaurer('parcours', p.id)}><Icone nom="rejouer" taille={16} />Restaurer</button>
+                      : <button type="button" className="btn btn-petit btn-rouge" onClick={() => setASupprimer({ type: 'parcours', id: p.id, titre: p.titre })}><Icone nom="poubelle" taille={16} />Supprimer</button>}
+                  </div>
+                  {ouvert && (
+                    <ul className="lecons-standard">
+                      {p.lecons.map((l) => (
+                        <li key={l.id} className={l.supprimee || p.supprime ? 'supprimee' : ''}>
+                          <div><strong>{l.titre}</strong><div className="discret" style={{ fontSize: 13 }}>{l.unite} · {l.nbQuestions} questions</div></div>
+                          {!p.supprime && (l.supprimee
+                            ? <button type="button" className="btn btn-petit btn-fantome" onClick={() => restaurer('lecons', l.id)}><Icone nom="rejouer" taille={16} />Restaurer</button>
+                            : <button type="button" className="btn btn-petit btn-fantome" onClick={() => setASupprimer({ type: 'lecons', id: l.id, titre: l.titre })}><Icone nom="poubelle" taille={16} />Supprimer</button>)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      {aSupprimer && (
+        <Modale titre={`Supprimer « ${aSupprimer.titre} » ?`} fermer={() => setASupprimer(null)}>
+          <p>{aSupprimer.type === 'parcours' ? 'Ce parcours et toutes ses leçons' : 'Cette leçon'} ne seront plus proposés à vos membres. Les résultats et XP déjà obtenus sont conservés, et vous pourrez le restaurer plus tard.</p>
+          <div className="actions">
+            <button className="btn" onClick={() => setASupprimer(null)}>Annuler</button>
+            <button className="btn btn-rouge" onClick={() => supprimer(aSupprimer)}>Supprimer</button>
+          </div>
+        </Modale>
+      )}
+    </section>
   );
 }
 
@@ -90,7 +186,7 @@ export function EditeurDefi() {
 
   return (
     <div className="page page-etroite" style={{ maxWidth: 820 }}>
-      <Link to="/admin/defis" className="btn btn-fantome btn-petit" style={{ marginBottom: 12 }}><Icone nom="retour" taille={16} />Défis maison</Link>
+      <Link to="/admin/defis" className="btn btn-fantome btn-petit" style={{ marginBottom: 12 }}><Icone nom="retour" taille={16} />Défis</Link>
       <div className="titre-page"><h1>{nouveau ? 'Nouveau défi' : 'Modifier le défi'}</h1></div>
       {erreur && <div className="erreur-form" style={{ marginBottom: 16 }}>{erreur}</div>}
       <div className="carte carte-pad empile" style={{ marginBottom: 20 }}>

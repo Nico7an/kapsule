@@ -19,11 +19,11 @@ CREATE TABLE IF NOT EXISTS orgs (
 
 CREATE TABLE IF NOT EXISTS users (
   id              INTEGER PRIMARY KEY,
-  org_id          INTEGER REFERENCES orgs(id) ON DELETE CASCADE,
+  org_id          INTEGER NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
   email           TEXT NOT NULL UNIQUE COLLATE NOCASE,
   name            TEXT NOT NULL,
   password_hash   TEXT NOT NULL DEFAULT '',
-  role            TEXT NOT NULL CHECK (role IN ('superadmin','admin','learner')),
+  role            TEXT NOT NULL CHECK (role IN ('admin','learner')),
   avatar          TEXT NOT NULL DEFAULT 'renard',
   xp              INTEGER NOT NULL DEFAULT 0,
   streak          INTEGER NOT NULL DEFAULT 0,
@@ -32,8 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
   sound           INTEGER NOT NULL DEFAULT 1,
   disabled        INTEGER NOT NULL DEFAULT 0,
   must_change_pw  INTEGER NOT NULL DEFAULT 0,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-  CHECK ((role = 'superadmin') = (org_id IS NULL))
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 CREATE INDEX IF NOT EXISTS users_org ON users(org_id);
 
@@ -80,6 +79,16 @@ CREATE TABLE IF NOT EXISTS lessons (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 CREATE INDEX IF NOT EXISTS lessons_path ON lessons(path_id, position);
+
+-- Contenu du catalogue commun supprimé par une organisation : il disparaît pour
+-- ses membres seulement, et peut être restauré. kind = 'path' ou 'lesson'.
+CREATE TABLE IF NOT EXISTS org_hidden (
+  org_id     INTEGER NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK (kind IN ('path','lesson')),
+  target_id  TEXT NOT NULL,
+  hidden_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+  PRIMARY KEY (org_id, kind, target_id)
+);
 
 -- Partie en cours : les réponses sont enregistrées au fil de l'eau, côté
 -- serveur, pour que le score final ne dépende pas de ce qu'affirme le client.

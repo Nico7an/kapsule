@@ -5,9 +5,15 @@ import {
 import { exigerConnexion } from '../gardes.js';
 import { niveau, serieEffective, jourLocal } from '../jeu.js';
 import { xpDuJour } from '../requetes.js';
-import { envoyerCodeConnexion, envoyerCodeRejoindre } from '../email.js';
+import { envoyerCodeConnexion, envoyerCodeRejoindre, envoyerCodeCreation } from '../email.js';
+import { creerOrganisation, verifierNomOrganisation } from '../organisations.js';
 
-export const AVATARS = ['renard', 'chat', 'hibou', 'panda', 'robot', 'pieuvre', 'grenouille', 'lapin', 'manchot', 'raton', 'tigre', 'licorne'];
+export const AVATARS = ['renard', 'chat', 'hibou', 'panda', 'crabe', 'pieuvre', 'grenouille', 'lapin', 'manchot', 'raton', 'tigre', 'licorne'];
+
+const ECHEC_ENVOI = 'L\'e-mail n\'a pas pu être envoyé. Réessayez dans quelques minutes ou prévenez votre administrateur.';
+
+// Codes qui ouvrent une session (les codes d'inscription et de création ont leur propre route).
+const TYPES_SESSION = ['connexion', 'invitation'];
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,17 +59,16 @@ export default async function routesAuth(app) {
     const { email } = req.body ?? {};
     if (!emailValide(email)) return reply.code(400).send({ erreur: 'Adresse e-mail invalide' });
     const e = email.trim().toLowerCase();
-    console.log(`[AUTH] Demande de code OTP pour "${e}" (IP: ${req.ip})`);
 
     const cle = `code|${req.ip}|${e}`;
     if (app.limiteurConnexion.depasse(cle)) {
-      console.warn(`[AUTH] Limiteur de requêtes dépassé pour "${e}" (IP: ${req.ip})`);
+      req.log.warn({ email: e }, 'Demande de code : limite atteinte');
       return reply.code(429).send({ erreur: 'Trop de demandes. Réessayez dans un quart d\'heure.' });
     }
 
     const u = db.prepare('SELECT * FROM users WHERE email = ?').get(e);
     if (!u || u.disabled) {
-      console.warn(`[AUTH] Aucun compte actif trouvé pour "${e}". Aucun e-mail envoyé.`);
+      req.log.info({ email: e }, 'Demande de code : aucun compte actif, pas d\'e-mail');
       return reply.code(404).send({
         erreur: `Aucun compte n'est associé à l'adresse "${e}". Vérifiez l'adresse ou demandez une invitation à votre administrateur.`,
         existe: false,
@@ -71,17 +76,16 @@ export default async function routesAuth(app) {
     }
 
     const code = creerOtp(db, { email: u.email, type: 'connexion', orgId: u.org_id });
-    const baseUrl = env.CYBER_URL || `${req.protocol}://${req.host}`;
+    const baseUrl = env.KAPSULE_URL || `${req.protocol}://${req.host}`;
     const lien = `${baseUrl}/?email=${encodeURIComponent(u.email)}&code=${code}`;
 
-    console.log(`[AUTH] Code OTP généré pour ${u.email} : ${code} | Lien direct: ${lien}`);
-
-    await envoyerCodeConnexion({
+    const envoi = await envoyerCodeConnexion({
       email: u.email,
       prenom: u.name.split(' ')[0],
       code,
       lienConnexion: lien,
     });
+    if (!envoi.ok) return reply.code(503).send({ erreur: ECHEC_ENVOI });
 
     return {
       ok: true,
@@ -103,7 +107,7 @@ export default async function routesAuth(app) {
     }
 
     try {
-      validerOtp(db, { email: e, code });
+      validerOtp(db, { email: e, code, type: TYPES_SESSION });
     } catch (err) {
       return reply.code(400).send({ erreur: err.message });
     }
@@ -125,7 +129,7 @@ export default async function routesAuth(app) {
 
     if (code) {
       try {
-        validerOtp(db, { email: e, code });
+        validerOtp(db, { email: e, code, type: TYPES_SESSION });
       } catch (err) {
         return reply.code(400).send({ erreur: err.message });
       }
@@ -176,7 +180,8 @@ export default async function routesAuth(app) {
       return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
     }
     const otp = creerOtp(db, { email: e, type: 'inscription', orgId: org.id, metadata: { nom: nom.trim(), avatar, code } });
-    await envoyerCodeRejoindre({ email: e, prenom: nom.trim().split(' ')[0], organisation: org.name, code: otp });
+    const envoi = await envoyerCodeRejoindre({ email: e, prenom: nom.trim().split(' ')[0], organisation: org.name, code: otp });
+    if (!envoi.ok) return reply.code(503).send({ erreur: ECHEC_ENVOI });
     return { ok: true, organisation: org.name, ...(env.NODE_ENV !== 'production' ? { devCode: otp } : {}) };
   });
 
@@ -200,6 +205,53 @@ export default async function routesAuth(app) {
     const { lastInsertRowid } = db.prepare(`INSERT INTO users (org_id, email, name, password_hash, role, avatar) VALUES (?, ?, ?, '', 'learner', ?)`)
       .run(org.id, r.email, nom || 'Apprenant', AVATARS.includes(avatar) ? avatar : AVATARS[0]);
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(lastInsertRowid);
+    const { jeton, maxAge } = creerSession(db, u.id);
+    poserCookie(reply, jeton, maxAge);
+    return reply.code(201).send(vueMoi(db, u));
+  });
+
+  // Création d'une organisation en libre-service, étape 1 : envoi du code de confirmation.
+  // Rien n'est créé avant la validation du code : une adresse qu'on ne possède pas
+  // ne permet pas de réserver un nom ni d'ouvrir un espace.
+  app.post('/auth/demander-creation', async (req, reply) => {
+    const { organisation, nom, email, avatar } = req.body ?? {};
+    if (app.limiteurConnexion.depasse(`creation|${req.ip}`)) return reply.code(429).send({ erreur: 'Trop d\'essais. Réessayez plus tard.' });
+    const erreur = verifierNomOrganisation(db, organisation) ?? verifierNom(nom) ?? (!emailValide(email) ? 'Adresse e-mail invalide' : null);
+    if (erreur) return reply.code(400).send({ erreur });
+    const e = email.trim().toLowerCase();
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(e)) {
+      return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse : connectez-vous plutôt.' });
+    }
+    const otp = creerOtp(db, {
+      email: e, type: 'creation',
+      metadata: { organisation: organisation.trim(), nom: nom.trim(), avatar: AVATARS.includes(avatar) ? avatar : AVATARS[0] },
+    });
+    const envoi = await envoyerCodeCreation({ email: e, prenom: nom.trim().split(' ')[0], organisation: organisation.trim(), code: otp });
+    if (!envoi.ok) return reply.code(503).send({ erreur: ECHEC_ENVOI });
+    req.log.info({ email: e, organisation: organisation.trim() }, 'Création d\'organisation : code envoyé');
+    return { ok: true, ...(env.NODE_ENV !== 'production' ? { devCode: otp } : {}) };
+  });
+
+  // Étape 2 : validation du code, création de l'organisation et de son administrateur.
+  app.post('/auth/valider-creation', async (req, reply) => {
+    const { email, code } = req.body ?? {};
+    if (!email || !code) return reply.code(400).send({ erreur: 'E-mail et code requis' });
+    let r;
+    try {
+      r = validerOtp(db, { email, code, type: 'creation' });
+    } catch (err) {
+      return reply.code(400).send({ erreur: err.message });
+    }
+    const { organisation, nom, avatar } = r.metadata;
+    // Le nom ou l'adresse ont pu être pris entre les deux étapes.
+    const erreur = verifierNomOrganisation(db, organisation);
+    if (erreur) return reply.code(409).send({ erreur });
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(r.email)) {
+      return reply.code(409).send({ erreur: 'Un compte existe déjà avec cette adresse' });
+    }
+    const { orgId, userId } = creerOrganisation(db, { nom: organisation, adminNom: nom, adminEmail: r.email, avatar });
+    req.log.info({ email: r.email, orgId, organisation }, 'Organisation créée en libre-service');
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     const { jeton, maxAge } = creerSession(db, u.id);
     poserCookie(reply, jeton, maxAge);
     return reply.code(201).send(vueMoi(db, u));

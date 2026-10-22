@@ -1,5 +1,5 @@
 {
-  "name": "cyber-server",
+  "name": "kapsule-server",
   "private": true,
   "type": "module",
   "engines": {

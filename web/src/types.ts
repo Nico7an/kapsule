@@ -1,4 +1,4 @@
-export type Role = 'superadmin' | 'admin' | 'learner';
+export type Role = 'admin' | 'learner';
 export type Couleur = 'jaune' | 'orange' | 'vert' | 'bleu' | 'rouge' | 'rose';
 
 export interface Niveau { niveau: number; xpNiveau: number; xpPalier: number; grade: string }
@@ -12,7 +12,8 @@ export interface Moi extends Niveau {
 }
 
 export interface NoeudLecon { id: string; titre: string; unite: string; nbQuestions: number; etoiles: number; reussie: boolean; ouverte: boolean }
-export interface Parcours { id: string; titre: string; description: string; couleur: Couleur; icone: string; defi: boolean; lecons: NoeudLecon[]; faites: number; total: number }
+export interface Categorie { id: string; titre: string; famille: string; icone: string }
+export interface Parcours { id: string; titre: string; description: string; couleur: Couleur; icone: string; categorie: Categorie; defi: boolean; lecons: NoeudLecon[]; faites: number; total: number }
 
 export type Support =
   | { type: 'email'; de: string; objet: string; corps: string; lien?: string }

@@ -1,26 +1,37 @@
-# 🛡️ Cyber — Plateforme Ludique de Formation en Cybersécurité
+# Kapsule — comprendre toute la boîte, en 3 minutes par jour
 
-**Cyber** est une plateforme d'apprentissage et de sensibilisation à la cybersécurité pensée comme un jeu d'arcade éducatif (dans l'esprit de Duolingo). Elle combine gamification poussée, isolation stricte multi-organisations et tableaux de bord d'administration détaillés.
+**Kapsule** est une plateforme d'apprentissage ludique (dans l'esprit de Duolingo) pour comprendre le travail de toute l'entreprise : les métiers des collègues (dev, DevOps, marketing, commerciaux, Customer Success, CTO, CEO), le droit des sociétés et le quotidien des clients (avocats, experts-comptables, juristes d'entreprise), et les bons réflexes de cybersécurité. Elle combine gamification, isolation stricte multi-organisations et tableaux de bord d'administration.
+
+L'application s'appelait auparavant « Cyber » (cyber.nico7an.fr, redirigé vers kapsule.nico7an.fr).
 
 ---
 
 ## 🎮 Fonctionnalités
 
 ### Expérience Apprenant (Ultra-ludique)
-- **Parcours en arborescence serpentant** avec thématiques concrètes :
+- **Parcours en arborescence serpentant**, dont la cybersécurité :
   - *Les réflexes de base* (mots de passe, 2FA/MFA, mises à jour)
   - *Hameçonnage & ingénierie sociale* (analyse d'e-mails suspects, SMS frauduleux, arnaque au président)
   - *Mobilité & télétravail* (Wi-Fi public, clés USB inconnues, verrouillage de poste)
   - *Protection des données & RGPD* (fichiers sensibles, partage externe, violations)
   - *Réaction aux incidents* (rançongiciels, réflexes d'alerte, déconnexion)
-- **Mascotte « Bitou »** qui réagit aux actions (encouragements, avertissements, fierté).
+- **Mascotte « Kapi »**, une gélule qui réagit aux actions (encouragements, avertissements, fierté).
 - **Mécanique de jeu** :
-  - 3 boucliers d'intégrité par leçon (alerte « Système compromis » en cas d'épuisement).
+  - 3 boucliers par leçon (« Boucliers épuisés » au bout de trois erreurs).
   - Multiplicateurs de combo (flammes de série).
-  - Points d'expérience (XP) et niveaux avec grades de sécurité.
+  - Points d'expérience (XP) et niveaux avec grades (Recrue → Légende).
   - Séries quotidiennes (*streaks*) pour ancrer l'habitude.
-  - Badges de succès déblocables (Sans-faute, Pare-feu humain, Maître de la série, etc.).
+  - Badges de succès déblocables (Sans faute, Couteau suisse, Inarrêtable, etc.).
   - Effets sonores procéduraux (Web Audio API) et confettis de victoire.
+
+### Catégories de formation
+Le sélecteur de la page *Apprendre* regroupe les parcours par famille :
+- **Cybersécurité** : les cinq parcours ci-dessus.
+- **Droit des sociétés** : l'essentiel (formes de société, titres, assemblées, approbation des comptes), puis le quotidien des avocats en droit des sociétés, des experts-comptables et des juristes d'entreprise.
+- **Métiers de l'entreprise** : développeurs, DevOps, marketing, commerciaux, Customer Success, CTO et CEO, pour comprendre le travail des collègues.
+- **Défis maison** : les questionnaires créés par l'organisation.
+
+Chaque parcours droit et métiers s'ouvre sur une leçon « lexique » (les mots du métier, définis simplement) et se termine par une leçon « niveau expert », plus difficile.
 
 ### Compétition et Classements
 - **Podium et classements publics au sein de l'organisation** :
@@ -43,18 +54,17 @@
 - **Export CSV** conforme RGPD avec protection contre les injections de formules.
 - **Défis maison** : Module de création de leçons et questionnaires personnalisés (politiques internes, chartes sécurité).
 
-### Espace Plateforme (Super-administrateur)
-- Vue agrégée des organisations enregistrées.
-- Création d'organisations avec provisionnement automatique du premier administrateur.
-- Suppression sécurisée avec confirmation explicite du nom.
-- Préservation de la confidentialité : les données individuelles des apprenants restent inaccessibles au super-admin.
+### Inscription en libre-service
+- N'importe qui crée l'espace de son organisation depuis l'écran de connexion (« Créer mon organisation ») et en devient l'administrateur.
+- Rien n'est créé avant la validation du code reçu par e-mail : impossible de réserver un nom ou d'ouvrir un espace avec une adresse qu'on ne possède pas.
+- Les collègues rejoignent ensuite l'espace par le lien d'invitation ou une invitation e-mail de l'administrateur.
 
 ---
 
 ## 🏗️ Architecture
 
 - **Conteneur unique** : Une image Docker alpine/bookworm légère basée sur Node 24.
-- **Serveur API** : Fastify avec validation, cookies de session `httpOnly`, en-têtes de sécurité (CSP strict, anti-CSRF `x-cyber`).
+- **Serveur API** : Fastify avec validation, cookies de session `httpOnly`, en-têtes de sécurité (CSP strict, anti-CSRF `x-kapsule`).
 - **Base de données** : SQLite intégrée native (`node:sqlite`), mode WAL, stockée dans le volume persistant `/data`.
 - **Frontend** : Application monopage (SPA) React 19 + TypeScript + Vite, précompilée et servie directement par Fastify avec mise en cache optimisée des assets.
 
@@ -78,14 +88,10 @@ cd ..
 cd web && npm run build && cd ..
 
 # 3. Lancer le serveur (port 3000 par défaut)
-CYBER_ADMIN_EMAIL=admin@plateforme.local \
-CYBER_ADMIN_PASSWORD=ChangeMoi123! \
-CYBER_DEMO_EMAIL=admin@demo.local \
-CYBER_DEMO_PASSWORD=DemoCyber123! \
 npm --prefix server start
 ```
 
-Rendez-vous sur [http://localhost:3000](http://localhost:3000).
+Rendez-vous sur [http://localhost:3000](http://localhost:3000). Sans `SMTP_EMAIL` / `SMTP_PASSWORD` et hors production, les codes de connexion s'affichent dans la console du serveur au lieu d'être envoyés.
 
 ### Tests automatisés
 
@@ -103,13 +109,16 @@ Le projet s'intègre avec **Portainer** et le reverse proxy **Traefik**.
 
 | Variable | Description | Valeur par défaut |
 |---|---|---|
-| `CYBER_HOST` | Nom de domaine routé par Traefik | `cyber.nico7an.fr` |
-| `CYBER_IMAGE` | Nom/tag de l'image Docker | `cyber:latest` |
-| `CYBER_MIDDLEWARES` | Middleware Traefik (IP whitelist ou public) | `tailscale-whitelist@file` |
-| `CYBER_ADMIN_EMAIL` | E-mail du compte super-administrateur | `admin@plateforme.local` |
-| `CYBER_ADMIN_PASSWORD` | Mot de passe du super-admin au premier boot | `ChangeMoi123!` |
-| `CYBER_DEMO_EMAIL` | E-mail de l'admin de l'organisation démo | `admin@demo.local` |
-| `CYBER_DEMO_PASSWORD` | Mot de passe de l'admin démo | `DemoCyber123!` |
+| `KAPSULE_HOST` | Nom de domaine routé par Traefik | `kapsule.nico7an.fr` |
+| `KAPSULE_ANCIEN_HOST` | Ancien domaine, redirigé en permanence vers le nouveau | `cyber.nico7an.fr` |
+| `KAPSULE_IMAGE` | Nom/tag de l'image Docker | `kapsule:latest` |
+| `KAPSULE_MIDDLEWARES` | Middleware Traefik : `public-shield@file` (ouvert, en-têtes + limitation de débit) ou `tailscale-whitelist@file` (privé) | `public-shield@file` |
+| `KAPSULE_URL` | URL publique, utilisée dans les liens des e-mails | `https://kapsule.nico7an.fr` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | Serveur d'envoi | `ssl0.ovh.net` / `465` / `true` |
+| `SMTP_EMAIL` / `SMTP_PASSWORD` | Identifiants de la boîte d'envoi (obligatoires). Le mot de passe se saisit dans l'env de la stack Portainer : `deployer.sh` ne l'écrase jamais | — |
+| `SMTP_FROM` | Expéditeur affiché | `Kapsule <contact@nico7an.fr>` |
+
+Au démarrage, le serveur teste la connexion SMTP et l'écrit dans le journal (`SMTP opérationnel` ou `SMTP inutilisable …`). Chaque envoi est journalisé (`E-mail envoyé` / `Échec d'envoi d'e-mail`) ; les codes eux-mêmes ne sont jamais écrits dans les journaux en production. Si l'envoi échoue, l'utilisateur reçoit une erreur explicite au lieu d'un faux « code envoyé ».
 
 ### Déploiement automatique
 
@@ -125,7 +134,7 @@ Le script `scripts/deployer.sh` :
 
 ### Déploiement manuel dans Portainer
 1. Dans Portainer : *Stacks* → *Add stack* → *Web editor*.
-2. Nom : `cyber`.
-3. Collez le contenu de [docker-compose.yml](file:///home/nico/Documents/cyber/docker-compose.yml).
+2. Nom : `kapsule`.
+3. Collez le contenu de [docker-compose.yml](file:///home/nico/Documents/kapsule/docker-compose.yml).
 4. Renseignez les variables d'environnement.
 5. Déployez la pile.

@@ -1,4 +1,5 @@
 import { CATALOGUE } from './catalogue.js';
+import { CATEGORIES, CATEGORIE_DEFIS } from './categories.js';
 import { transaction } from '../db.js';
 
 export class ErreurValidation extends Error {
@@ -6,7 +7,8 @@ export class ErreurValidation extends Error {
 }
 
 const COULEURS = ['jaune', 'orange', 'vert', 'bleu', 'rouge', 'rose'];
-export const ICONES = ['cadenas', 'hamecon', 'valise', 'dossier', 'sirene', 'bouclier', 'cible', 'eclair'];
+export const ICONES = ['cadenas', 'hamecon', 'valise', 'dossier', 'sirene', 'bouclier', 'cible', 'eclair',
+  'balance', 'marteau', 'calculatrice', 'immeuble', 'code', 'megaphone', 'tendance', 'casque', 'puce', 'boussole', 'infini', 'livre', 'diplome'];
 
 const texte = (v, max, quoi) => {
   if (typeof v !== 'string' || !v.trim()) throw new ErreurValidation(`${quoi} manquant`);
@@ -85,6 +87,7 @@ export function synchroniserCatalogue(db) {
         updated_at = CASE WHEN lessons.questions = excluded.questions THEN lessons.updated_at ELSE strftime('%Y-%m-%dT%H:%M:%SZ','now') END`);
     CATALOGUE.forEach((p, i) => {
       if (!COULEURS.includes(p.couleur) || !ICONES.includes(p.icone)) throw new Error(`Parcours ${p.id} : couleur ou icône inconnue`);
+      if (!CATEGORIES.some((c) => c.id === p.categorie && c.id !== CATEGORIE_DEFIS)) throw new Error(`Parcours ${p.id} : catégorie inconnue`);
       upPath.run(p.id, p.titre, p.description, p.couleur, p.icone, i);
       p.lecons.forEach((l, j) => {
         const questions = validerQuestions(l.questions);
@@ -99,3 +102,13 @@ export function synchroniserCatalogue(db) {
 }
 
 export { COULEURS };
+
+const CATEGORIE_PAR_PARCOURS = new Map(CATALOGUE.map((p) => [p.id, p.categorie]));
+const CATEGORIES_PAR_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
+
+/** Catégorie d'un parcours : celle du catalogue, ou « défis maison » pour une organisation. */
+export function categorieDe(parcours) {
+  const id = parcours.org_id !== null ? CATEGORIE_DEFIS : CATEGORIE_PAR_PARCOURS.get(parcours.id) ?? CATEGORIE_DEFIS;
+  const { titre, famille, icone } = CATEGORIES_PAR_ID.get(id);
+  return { id, titre, famille, icone };
+}

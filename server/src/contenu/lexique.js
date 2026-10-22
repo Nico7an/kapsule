@@ -1,0 +1,312 @@
+// Leçons « lexique » : les mots de chaque métier, sans entrer dans le détail,
+// pour comprendre vite ce que disent les collègues et les clients. Placées en
+// tête de chaque parcours (clé = id du parcours). Même format que catalogue.js.
+
+const vraiFaux = (id, enonce, vrai, explication) => ({
+  id, type: 'unique', enonce, choix: ['Vrai', 'Faux'], reponse: vrai ? 0 : 1, explication,
+});
+
+const UNITE = 'Le lexique';
+
+/** Question de définition : « X, c’est… », la bonne réponse en premier dans `choix`. */
+const definition = (id, terme, [bonne, ...autres], explication, position = 0) => {
+  const choix = [...autres];
+  choix.splice(position, 0, bonne);
+  return { id, type: 'unique', enonce: `${terme}, c’est…`, choix, reponse: position, explication };
+};
+
+export const LEXIQUE = {
+  // ---------------------------------------------------------------------------
+  'droit-bases': {
+    id: 'droit-lexique',
+    unite: UNITE,
+    titre: 'Les mots du droit',
+    questions: [
+      definition('q1', 'Une « loi »', ['Une règle votée par le Parlement', 'Une décision du président d’une société', 'Un contrat entre deux entreprises', 'Une recommandation de la CNIL'],
+        'Votée par l’Assemblée nationale et le Sénat, elle s’impose à tous.'),
+      definition('q2', 'Un « décret »', ['Un texte pris par le gouvernement, souvent pour préciser comment appliquer une loi', 'Un texte voté par le Parlement', 'Une décision de justice', 'Une clause des statuts'],
+        'La loi pose le principe, le décret en règle souvent les détails (délais, formulaires, montants).', 1),
+      definition('q3', 'Le « Code de commerce »', ['Le recueil qui rassemble les textes sur le commerce et les sociétés', 'Un mot de passe', 'Le règlement intérieur d’un tribunal', 'Un logiciel de caisse'],
+        'C’est la référence du droit des sociétés : SARL, SAS, assemblées, comptes annuels…'),
+      definition('q4', 'Une « clause »', ['Une disposition précise dans un contrat ou des statuts', 'Un article de presse', 'Une amende', 'Un type de société'],
+        'Par exemple une clause d’agrément (qui peut entrer au capital) ou une clause de non-concurrence.', 2),
+      definition('q5', 'Les « statuts » d’une société', ['Le document fondateur qui fixe ses règles : nom, objet, siège, capital, fonctionnement', 'Le classement des salariés', 'Le niveau d’un client', 'Les comptes annuels'],
+        'Ils sont signés à la création et modifiés par les associés au fil de la vie de la société.'),
+      definition('q6', 'La « jurisprudence »', ['L’ensemble des décisions des tribunaux, qui précisent comment interpréter les textes', 'Une école de droit', 'Un code', 'Un avocat débutant'],
+        'Quand un texte est flou, ce sont les décisions de justice qui tranchent.', 1),
+      definition('q7', 'Une « personne morale »', ['Une entité qui a une existence juridique propre, comme une société ou une association', 'Une personne honnête', 'Le dirigeant d’une société', 'Un juge'],
+        'Elle a un nom, un siège, un patrimoine, et peut signer des contrats, distinctement de ses membres.'),
+      definition('q8', 'Le « siège social »', ['L’adresse officielle de la société', 'Le fauteuil du président', 'Le service des ressources humaines', 'Une filiale'],
+        'Il figure dans les statuts et sur le Kbis. En changer suppose une décision et une formalité.', 3),
+      vraiFaux('q9', 'Un décret peut contredire une loi.', false,
+        'Non : la loi est au-dessus du décret. C’est la « hiérarchie des normes ».'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  avocat: {
+    id: 'avocat-lexique',
+    unite: UNITE,
+    titre: 'Les mots du cabinet d’avocats',
+    questions: [
+      definition('q1', 'Le « barreau »', ['L’ordre des avocats d’une ville, auquel chaque avocat est inscrit', 'Le comptoir d’accueil du cabinet', 'Un tribunal', 'Un registre des sociétés'],
+        'Il y a un barreau auprès de chaque tribunal judiciaire (Paris, Lyon, Bordeaux…). Pour exercer, un avocat doit y être inscrit : on dit qu’il est « avocat au barreau de Paris ».'),
+      definition('q2', 'Le « bâtonnier »', ['L’avocat élu à la tête du barreau', 'Le doyen des magistrats', 'Le greffier du tribunal', 'Le client le plus ancien'],
+        'Il représente les avocats de son barreau et veille au respect de la déontologie.', 1),
+      definition('q3', 'Un « associé », dans un cabinet', ['Un avocat qui détient une part du cabinet et le dirige avec les autres associés', 'L’associé de la société cliente', 'Un stagiaire', 'Un client fidèle'],
+        'À ne pas confondre avec l’associé d’une société cliente : le même mot, deux sens.'),
+      definition('q4', 'Le « conseil », par opposition au « contentieux »', ['Accompagner et rédiger en amont, sans procès', 'Plaider devant un tribunal', 'Recouvrer des factures impayées', 'Rendre un jugement'],
+        'Le droit des sociétés relève surtout du conseil ; le contentieux, ce sont les litiges devant le juge.', 2),
+      definition('q5', 'Un « acte », en droit', ['Un écrit qui constate une décision ou un accord : PV, cession, statuts…', 'Une pièce de théâtre', 'Une facture', 'Un simple e-mail'],
+        'Les logiciels de secrétariat juridique servent justement à produire et faire signer ces actes.'),
+      definition('q6', 'Les « honoraires »', ['La rémunération de l’avocat', 'Une distinction honorifique', 'Un impôt', 'Une amende'],
+        'Ils sont fixés avec le client dans une convention d’honoraires.', 3),
+      definition('q7', 'Une « consultation »', ['Un avis juridique donné par l’avocat sur une question précise', 'Un vote des associés', 'Un rendez-vous médical', 'Une démonstration de logiciel'],
+        'Elle peut être écrite ou orale, et reste couverte par le secret professionnel.'),
+      definition('q8', 'Une « due diligence »', ['L’audit d’une société avant une opération, comme un rachat ou une levée de fonds', 'Une procédure d’urgence', 'Une formule de politesse', 'Une facture détaillée'],
+        'L’acheteur ou l’investisseur vérifie tout : statuts, registres, contrats, litiges.', 1),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'expert-comptable': {
+    id: 'ec-lexique',
+    unite: UNITE,
+    titre: 'Les mots du cabinet comptable',
+    questions: [
+      definition('q1', 'Le « bilan »', ['Une photographie du patrimoine de la société à la clôture : ce qu’elle possède et ce qu’elle doit', 'Le chiffre d’affaires de l’année', 'Le compte rendu d’une réunion', 'Une prévision de ventes'],
+        'Actif d’un côté (ce que la société possède), passif de l’autre (ce qu’elle doit, et ses capitaux propres).'),
+      definition('q2', 'Le « compte de résultat »', ['Le résumé des produits et des charges de l’année, qui donne le bénéfice ou la perte', 'La liste des clients', 'Le relevé bancaire', 'Le capital social'],
+        'Le bilan dit « où on en est », le compte de résultat dit « ce qu’on a gagné ou perdu dans l’année ».', 1),
+      definition('q3', 'Un « exercice » comptable', ['La période, souvent de 12 mois, sur laquelle on arrête les comptes', 'Un entraînement', 'Une réunion annuelle', 'Un contrôle fiscal'],
+        'Il ne correspond pas forcément à l’année civile, même si c’est le cas le plus fréquent.'),
+      definition('q4', 'La « clôture »', ['La date de fin de l’exercice', 'La fermeture de la société', 'La fin d’un contrat', 'Le dépôt des comptes au greffe'],
+        'Le plus souvent le 31 décembre. Tout le calendrier de l’approbation des comptes en découle.', 2),
+      definition('q5', 'L’« annexe » des comptes', ['Le document qui complète et explique le bilan et le compte de résultat', 'Un bâtiment secondaire', 'Un contrat annexe', 'Une facture'],
+        'Bilan, compte de résultat et annexe forment ensemble les comptes annuels.'),
+      definition('q6', 'Le « report à nouveau »', ['Un bénéfice ou une perte laissé en attente, ni distribué ni mis en réserve', 'Une réunion reportée', 'Une dette fournisseur', 'Un impôt différé'],
+        'C’est l’une des options d’affectation du résultat votées par les associés.', 3),
+      {
+        id: 'q7', type: 'unique',
+        enonce: 'Dans un cabinet comptable, « le CAC » désigne…',
+        choix: ['Le commissaire aux comptes', 'L’indice boursier CAC 40', 'Le coût d’acquisition client', 'Le chef de cabinet'],
+        reponse: 0,
+        explication: 'Attention : chez les commerciaux et le marketing, CAC veut dire « coût d’acquisition client ». Même sigle, autre sens.',
+      },
+      vraiFaux('q8', 'Le chiffre d’affaires et le bénéfice, c’est la même chose.', false,
+        'Le chiffre d’affaires, ce sont les ventes ; le bénéfice, ce qui reste une fois toutes les charges payées.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  juriste: {
+    id: 'juriste-lexique',
+    unite: UNITE,
+    titre: 'Les mots de la direction juridique',
+    questions: [
+      definition('q1', 'La « direction juridique »', ['Le service qui regroupe les juristes d’une entreprise', 'La direction générale', 'Un tribunal', 'Un cabinet d’avocats externe'],
+        'Selon la taille de l’entreprise, elle compte un juriste ou plusieurs dizaines.'),
+      definition('q2', 'La « conformité » (compliance)', ['Le fait de s’assurer que l’entreprise respecte les règles qui s’appliquent à elle', 'Un compliment', 'Un audit financier', 'Une assurance'],
+        'Anticorruption, RGPD, sanctions internationales… souvent rattachée à la direction juridique.', 1),
+      definition('q3', 'Une « holding »', ['Une société dont l’activité principale est de détenir des participations dans d’autres sociétés', 'Un salon professionnel', 'Un contrat de location', 'Un fonds de pension'],
+        'Elle se trouve souvent en tête d’un groupe, au-dessus des filiales.'),
+      definition('q4', 'Un « mandat social »', ['La fonction de dirigeant d’une société : président, gérant, directeur général…', 'Un mandat de vente immobilière', 'Une élection politique', 'Un contrat de travail'],
+        'Celui qui l’exerce est un « mandataire social » : il est nommé selon les statuts, représente la société et peut être révoqué par les associés. Ce n’est pas un contrat de travail.', 2),
+      definition('q5', 'Une « formalité »', ['Une démarche obligatoire pour officialiser un changement : dirigeant, siège, capital…', 'Une simple politesse', 'Une réunion de service', 'Une facture'],
+        'Sans formalité, le changement n’est pas officiel pour les tiers (banques, clients, administrations). Elle se fait aujourd’hui en ligne, sur le guichet unique, et le Kbis est ensuite mis à jour.'),
+      definition('q6', 'Le « RCS »', ['Le registre du commerce et des sociétés, où les sociétés sont immatriculées', 'Un réseau social', 'Un logiciel comptable', 'Un code de loi'],
+        'L’extrait Kbis en est la copie officielle pour une société donnée.', 1),
+      definition('q7', 'Un « contentieux »', ['Un litige porté, ou susceptible d’être porté, devant un juge', 'Un contrat commercial', 'Un audit de conformité', 'Une assemblée générale'],
+        'La direction juridique le pilote, souvent avec des avocats externes.', 3),
+      vraiFaux('q8', 'Une filiale et une succursale, c’est la même chose.', false,
+        'La filiale est une société à part entière ; la succursale n’est qu’un établissement de la société, sans personnalité juridique propre.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-dev': {
+    id: 'dev-lexique',
+    unite: UNITE,
+    titre: 'Les mots des devs',
+    questions: [
+      definition('q1', 'Une « API »', ['Une porte d’entrée qui permet à deux logiciels d’échanger des données', 'Un langage de programmation', 'Un type de serveur', 'Une méthode de gestion de projet'],
+        'C’est par exemple ce qui permet à un logiciel juridique de se connecter au logiciel d’un cabinet ou de récupérer les données d’une société.'),
+      definition('q2', 'Un « sprint »', ['Une période courte et fixe, souvent de 1 à 3 semaines, avec des objectifs définis', 'Une course pour finir avant la date butoir', 'Une nuit blanche de code', 'Une réunion debout de 15 minutes'],
+        'L’équipe s’engage sur un lot de travail, le livre, puis fait le point. La courte réunion quotidienne, c’est le « daily ».', 1),
+      definition('q3', 'Un « hotfix »', ['Une correction urgente, livrée en dehors du rythme habituel', 'Une fonctionnalité très demandée', 'Un serveur qui surchauffe', 'Une offre promotionnelle'],
+        'Quand un bug bloque les clients, on n’attend pas la prochaine version : on corrige et on livre aussitôt.'),
+      definition('q4', 'Une « branche » Git', ['Une ligne de travail parallèle : on développe une évolution à part, sans toucher à la version principale', 'Un serveur secondaire', 'Un dossier de sauvegarde', 'Un développeur junior'],
+        'La branche principale (souvent « main ») contient la version de référence. Chaque évolution ou correction vit sur sa propre branche jusqu’à ce qu’elle soit prête.', 2),
+      definition('q5', 'Un « commit »', ['Un enregistrement des modifications, avec un message qui explique pourquoi', 'Un engagement contractuel', 'Une mise en production', 'Un message sur la messagerie de l’équipe'],
+        'Chaque commit est daté et signé de son auteur : c’est ce qui forme l’historique du code, et ce qui permet de revenir en arrière.'),
+      definition('q6', '« git push »', ['Envoyer ses modifications vers le dépôt partagé', 'Récupérer le travail des collègues', 'Mettre directement le code en production', 'Supprimer une branche'],
+        'Le développeur travaille sur sa copie locale ; « push » publie son travail sur le dépôt commun (GitHub, GitLab…), où les autres peuvent le voir.', 3),
+      definition('q7', '« git pull »', ['Récupérer les modifications du dépôt partagé sur sa copie locale', 'Envoyer son travail aux collègues', 'Annuler la dernière modification', 'Créer une nouvelle branche'],
+        'Push envoie, pull récupère. On fait un pull avant de commencer, pour partir de la dernière version.', 1),
+      definition('q8', 'Un « merge » (fusion)', ['Intégrer les modifications d’une branche dans une autre, par exemple une évolution terminée dans la branche principale', 'Supprimer une branche', 'Copier le code sur une clé USB', 'Fusionner deux sociétés'],
+        'Si deux branches ont modifié les mêmes lignes différemment, Git ne peut pas choisir seul : c’est un « conflit », qu’un développeur résout à la main.'),
+      definition('q9', 'Une « pull request » (ou « merge request »)', ['Une demande de fusion d’une branche, qui déclenche la relecture par un collègue et les tests', 'Un « git pull » urgent', 'Un ticket de support client', 'Une demande de congés'],
+        'Malgré son nom, elle n’a rien à voir avec « git pull » : c’est la porte d’entrée vers la branche principale. Pas de fusion sans relecture ni tests au vert.', 2),
+      vraiFaux('q10', 'Un « git push » met automatiquement le nouveau code en production.', false,
+        'Push publie le travail sur le dépôt partagé. Pour atteindre la production, il faut encore la pull request, la relecture, les tests, la fusion puis le déploiement.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-devops': {
+    id: 'devops-lexique',
+    unite: UNITE,
+    titre: 'Les mots des DevOps',
+    questions: [
+      definition('q1', 'Un « serveur »', ['Un ordinateur, souvent dans un centre de données, qui fait tourner une application pour de nombreux utilisateurs', 'Un serveur de restaurant', 'Un câble réseau', 'Un logiciel de messagerie'],
+        'Quand un client utilise le logiciel, c’est un serveur qui calcule et répond.'),
+      definition('q2', 'Le « cloud »', ['Des serveurs loués à distance chez un hébergeur, plutôt que possédés dans ses locaux', 'Une sauvegarde sur clé USB', 'La météo', 'Le Wi-Fi du bureau'],
+        'On paie à l’usage, et on peut ajouter de la puissance en quelques minutes.', 1),
+      definition('q3', '« Déployer »', ['Installer une nouvelle version du logiciel sur un environnement', 'Déplier une carte', 'Recruter quelqu’un', 'Supprimer un fichier'],
+        '« On déploie en prod », c’est-à-dire qu’on met la nouvelle version à disposition des clients.'),
+      definition('q4', 'Les « logs »', ['Les journaux où l’application note ce qu’elle fait et les erreurs rencontrées', 'Des bûches', 'Des identifiants de connexion', 'Des statistiques marketing'],
+        'C’est la première chose qu’on consulte pour comprendre un bug.', 2),
+      definition('q5', 'Un « backup »', ['Une sauvegarde des données, pour pouvoir les restaurer en cas de problème', 'Un collègue remplaçant', 'Un plan B commercial', 'Un antivirus'],
+        'On sauvegarde régulièrement (souvent chaque jour, voire plus) et on garde des copies dans un autre lieu. Une sauvegarde n’a de valeur que si l’on a vérifié qu’on sait la restaurer.'),
+      definition('q6', 'La « latence »', ['Le délai entre une action et sa réponse', 'Une panne totale', 'Un virus', 'Une mise à jour'],
+        'Elle se mesure en millisecondes. Plus elle est faible, plus l’application paraît rapide ; au-delà d’une seconde ou deux, les utilisateurs ont l’impression que « ça rame ».', 1),
+      definition('q7', 'Un « incident »', ['Un événement qui dégrade ou interrompt le service', 'Une dispute entre collègues', 'Un ticket commercial', 'Une réunion d’équipe'],
+        'Il déclenche une procédure : on rétablit, on informe, puis on analyse.', 3),
+      vraiFaux('q8', '« La prod est down » veut dire que le service est indisponible pour les clients.', true,
+        'Down = en panne, up = disponible. On entend aussi « ça rame » pour un service très lent.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-marketing': {
+    id: 'mkt-lexique',
+    unite: UNITE,
+    titre: 'Les mots du marketing',
+    questions: [
+      definition('q1', 'Un « lead »', ['Un contact qui a montré un intérêt et qu’on peut recontacter', 'Un client qui a signé', 'Un chef d’équipe', 'Une publicité'],
+        'Il a par exemple rempli un formulaire, téléchargé un guide ou suivi un webinaire.'),
+      definition('q2', 'Un lead « qualifié »', ['Un contact qui correspond à la cible et dont l’intérêt a été vérifié', 'Un contact diplômé', 'Un client fidèle', 'Un contact dont l’e-mail est valide'],
+        'On parle de MQL quand le marketing le juge prêt, de SQL quand les commerciaux l’acceptent.', 1),
+      definition('q3', 'Un lead « chaud »', ['Un contact très intéressé, prêt à parler d’achat rapidement', 'Un contact énervé', 'Un contact situé dans le sud', 'Un ancien client'],
+        'Il demande une démo, compare des offres, a un projet daté : à traiter en priorité.'),
+      definition('q4', 'Un lead « froid »', ['Un contact qui connaît peu l’entreprise et n’a pas encore montré d’intérêt concret', 'Un client mécontent', 'Un contact perdu définitivement', 'Un fournisseur'],
+        'On le « réchauffe » avec du contenu utile avant de lui proposer un rendez-vous.', 2),
+      definition('q5', 'Le « SEO »', ['Le référencement naturel : apparaître dans Google sans payer', 'La publicité payante sur Google', 'Un réseau social', 'Un salon professionnel'],
+        'La publicité payante sur les moteurs de recherche, c’est le SEA.'),
+      definition('q6', 'Un « CTA » (call to action)', ['Le bouton ou le lien qui invite à agir, comme « Demander une démo »', 'Un contrat de partenariat', 'Une taxe', 'Un compte client'],
+        'Chaque page ou e-mail devrait avoir un objectif clair, porté par son CTA.', 3),
+      definition('q7', 'Une « landing page »', ['Une page web conçue pour une campagne, avec un objectif unique', 'La page d’accueil du site', 'Une page d’erreur', 'Un formulaire papier'],
+        'C’est la page sur laquelle on « atterrit » après avoir cliqué sur une publicité ou un e-mail. Par exemple une page dédiée à l’inscription à un webinaire, sans menu ni distraction.', 1),
+      definition('q8', 'L’« entonnoir » (funnel)', ['Les étapes successives qui mènent un inconnu jusqu’à l’achat', 'Un outil de cuisine', 'Le budget marketing', 'Un organigramme'],
+        'Découverte, intérêt, considération, achat : à chaque étape, une partie des contacts s’arrête.'),
+      definition('q9', 'Un « persona »', ['Le portrait type d’un client idéal', 'Un influenceur rémunéré', 'Un compte VIP', 'Le logo de l’entreprise'],
+        'Par exemple : « responsable juridique d’un cabinet comptable de 40 personnes ».', 2),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-commercial': {
+    id: 'sales-lexique',
+    unite: UNITE,
+    titre: 'Les mots des commerciaux',
+    questions: [
+      definition('q1', 'Un « prospect »', ['Une entreprise ou une personne qu’on cherche à transformer en client', 'Un client actuel', 'Un concurrent', 'Un fournisseur'],
+        'Prospecter, c’est aller chercher ces futurs clients. Un prospect qui montre un intérêt devient un lead, puis une affaire en cours, puis, avec un peu de chance, un client.'),
+      definition('q2', 'Le « pipe »', ['L’ensemble des affaires en cours, classées par étape', 'Le tuyau de la machine à café', 'La liste des clients perdus', 'Le budget marketing'],
+        '« Mon pipe est plein » : beaucoup d’affaires en cours. « Il est vide » : il faut prospecter.', 1),
+      definition('q3', 'Un « deal »', ['Une affaire commerciale en cours de négociation', 'Un mauvais client', 'Une remise', 'Un contrat de travail'],
+        'Chaque deal a un montant, une étape et une date de signature espérée.'),
+      definition('q4', 'Le « closing »', ['Le moment où l’on conclut la vente', 'La fermeture du bureau', 'Un client qui part', 'Un rapport mensuel'],
+        '« Closer un deal », c’est obtenir la signature. Le « closing rate » (taux de transformation) mesure la part des affaires qui se concluent par une vente.', 2),
+      definition('q5', 'Le « forecast »', ['La prévision du chiffre d’affaires qui devrait être signé sur la période', 'Le budget marketing', 'La météo du jour', 'Le rapport annuel'],
+        'Le management s’en sert pour piloter l’entreprise : il doit être réaliste.'),
+      definition('q6', 'Le « cycle de vente »', ['Le temps et les étapes entre le premier contact et la signature', 'Un abonnement', 'Une promotion saisonnière', 'Une formation commerciale'],
+        'Pour un logiciel professionnel, il se compte souvent en semaines ou en mois.', 3),
+      definition('q7', 'Le « quota »', ['L’objectif de chiffre d’affaires fixé à un commercial sur une période', 'Le nombre maximum de clients', 'Une taxe', 'Le nombre de jours de congé'],
+        'Atteindre son quota déclenche souvent une partie de sa rémunération variable.', 1),
+      definition('q8', 'La prospection « outbound »', ['Aller chercher les prospects soi-même : appels, e-mails, LinkedIn', 'Attendre que les clients viennent d’eux-mêmes', 'Vendre à l’étranger', 'Vendre en boutique'],
+        'L’inverse, l’« inbound », c’est attirer les prospects avec du contenu.'),
+      vraiFaux('q9', 'Un lead et un client, c’est la même chose.', false,
+        'Le lead a montré un intérêt ; le client a signé. Entre les deux, il y a tout le travail commercial.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-csm': {
+    id: 'csm-lexique',
+    unite: UNITE,
+    titre: 'Les mots du Customer Success',
+    questions: [
+      definition('q1', 'Le « churn »', ['La part de clients, ou de revenus, perdus sur une période', 'Le nombre de nouveaux clients', 'Un type de réunion', 'Le délai de réponse du support'],
+        'Le mot vient de l’anglais « to churn » (brasser). « Ce client a churné » veut dire qu’il a résilié. Un churn de 5 % par an signifie que 5 clients sur 100 partent chaque année.'),
+      definition('q2', 'L’« onboarding »', ['Les premières semaines où l’on aide le client à démarrer avec le produit', 'La signature du contrat', 'La première facture', 'L’arrivée d’un nouveau salarié chez le client'],
+        'Import des données, paramétrage, formation, premier résultat concret : un client qui démarre bien adopte le produit. Un bon onboarding est le meilleur rempart contre le churn.', 1),
+      definition('q3', 'L’« adoption »', ['Le degré auquel les utilisateurs se servent vraiment du produit', 'Le fait d’acheter le produit', 'Une démarche familiale', 'Une formation obligatoire'],
+        'Un client qui paie mais n’utilise pas le produit est un client à risque.'),
+      definition('q4', 'Un « ticket »', ['Une demande enregistrée auprès du support et suivie jusqu’à sa résolution', 'Un billet de train', 'Une facture', 'Une remise'],
+        'Chaque ticket a un numéro et un statut (ouvert, en cours, résolu) : rien ne se perd, et on peut mesurer les délais de réponse et les sujets qui reviennent souvent.', 2),
+      definition('q5', 'Une « escalade »', ['Faire remonter un problème vers l’équipe technique ou le management quand il dépasse le support', 'Une sortie sportive d’équipe', 'Une hausse de prix', 'Un rappel du client'],
+        'On escalade quand un problème est bloquant, urgent ou touche un client important.'),
+      definition('q6', 'L’« upsell »', ['Vendre davantage à un client existant : plus de licences ou une offre supérieure', 'Vendre à un concurrent', 'Augmenter les prix pour tout le monde', 'Rembourser un client'],
+        'Le « cross-sell », lui, consiste à vendre un produit complémentaire.', 1),
+      definition('q7', 'Un « champion », chez le client', ['La personne convaincue qui défend le produit en interne', 'Le meilleur CSM de l’équipe', 'Le plus gros client', 'Le gagnant d’un concours'],
+        'S’il quitte l’entreprise, il faut vite trouver un nouveau relais.', 3),
+      definition('q8', 'Le « NPS »', ['Une note qui mesure à quel point les clients recommanderaient l’entreprise', 'Le nombre de produits vendus', 'La vitesse du site', 'Le salaire net'],
+        'On demande : « Sur une échelle de 0 à 10, recommanderiez-vous… ? »'),
+      vraiFaux('q9', 'Un délai de réponse garanti de 4 heures signifie que le problème sera résolu en 4 heures.', false,
+        'Le délai de réponse, c’est le temps de prise en charge. La résolution peut prendre plus longtemps.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-cto': {
+    id: 'cto-lexique',
+    unite: UNITE,
+    titre: 'Les mots de la tech',
+    questions: [
+      definition('q1', 'La « stack » technique', ['L’ensemble des technologies utilisées pour construire le produit', 'Une pile de dossiers', 'Un serveur', 'Le budget informatique'],
+        'Langages, bases de données, hébergement, outils : c’est la boîte à outils de l’équipe.'),
+      definition('q2', 'La « roadmap »', ['La feuille de route : ce que l’équipe prévoit de livrer dans les prochains mois', 'Un GPS', 'Un contrat', 'La liste des bugs'],
+        'Elle évolue avec les priorités : ce n’est pas une promesse figée.', 1),
+      definition('q3', 'Le « backlog »', ['La liste priorisée de tout ce qui reste à faire sur le produit', 'Les bugs déjà corrigés', 'Les archives', 'Le planning des congés'],
+        'Les demandes des clients y entrent ; la priorisation décide de ce qui en sort en premier.'),
+      definition('q4', 'Une « release »', ['Une version publiée du logiciel', 'Un communiqué de presse', 'Un départ de l’entreprise', 'Une remise commerciale'],
+        'Les « release notes » expliquent ce qui change dans chaque version.', 2),
+      definition('q5', 'Le « legacy »', ['L’ancien code ou système, toujours en service, souvent difficile à faire évoluer', 'Un héritage financier', 'Une technologie toute neuve', 'Un concurrent'],
+        'Le réécrire coûte cher ; le garder tel quel aussi. Arbitrage classique du CTO.'),
+      definition('q6', 'Un « SaaS »', ['Un logiciel utilisé en ligne, par abonnement, sans installation chez le client', 'Un logiciel vendu sur CD', 'Un serveur', 'Un service de paie'],
+        'Software as a Service : le client se connecte via son navigateur, l’éditeur gère tout le reste.', 3),
+      definition('q7', 'L’« open source »', ['Un logiciel dont le code est public et réutilisable selon une licence', 'Un logiciel piraté', 'Un logiciel ouvert 24 h sur 24', 'Un logiciel sans aucune règle d’utilisation'],
+        'Une grande partie des logiciels du monde s’appuie sur des briques open source.', 1),
+      vraiFaux('q8', 'Une « dépendance », c’est un composant externe sur lequel le logiciel s’appuie.', true,
+        'Une bibliothèque, un service tiers… Il faut les maintenir à jour, notamment pour la sécurité.'),
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  'metier-ceo': {
+    id: 'ceo-lexique',
+    unite: UNITE,
+    titre: 'Les mots de la direction',
+    questions: [
+      definition('q1', 'Le « business model »', ['La façon dont l’entreprise gagne de l’argent', 'Le règlement intérieur', 'L’organigramme', 'Le logo'],
+        'Pour un éditeur de logiciel : des abonnements payés chaque mois ou chaque année.'),
+      definition('q2', 'Le « chiffre d’affaires »', ['Le total des ventes sur une période', 'Le bénéfice', 'La trésorerie', 'Le capital social'],
+        'C’est ce qui entre, avant de payer les dépenses : salaires, loyers, serveurs… Une entreprise peut avoir un gros chiffre d’affaires et perdre de l’argent.', 1),
+      definition('q3', 'La « marge »', ['Ce qui reste des ventes une fois certains coûts déduits', 'Le bord d’une page', 'Le prix de vente', 'Une remise'],
+        'On parle de marge brute, de marge opérationnelle… selon les coûts retirés.'),
+      definition('q4', 'Le « point mort »', ['Le niveau de ventes à partir duquel l’entreprise ne perd plus d’argent', 'Une faillite', 'Une période sans ventes', 'La fin de l’année'],
+        'En dessous, chaque mois coûte de l’argent ; au-dessus, l’entreprise gagne.', 2),
+      definition('q5', 'La « valorisation »', ['La valeur estimée de l’entreprise, par exemple lors d’une levée de fonds', 'Le chiffre d’affaires', 'Le salaire du CEO', 'Le capital social'],
+        'Elle se négocie avec les investisseurs et dépend surtout des perspectives de croissance.'),
+      definition('q6', 'Un « KPI »', ['Un indicateur clé, suivi pour piloter l’activité', 'Un logiciel', 'Une prime', 'Une obligation légale'],
+        'Key Performance Indicator : revenu récurrent, churn, nombre de clients…', 3),
+      definition('q7', 'Le « Codir »', ['Le comité de direction : les principaux responsables qui pilotent l’entreprise ensemble', 'Le comité social et économique', 'Le conseil des prud’hommes', 'Un client important'],
+        'Il réunit autour du CEO les responsables des grandes équipes (produit, tech, ventes, finance…). On entend aussi « Comex » (comité exécutif), souvent dans les plus grandes entreprises.', 1),
+      definition('q8', 'Une « scale-up »', ['Une jeune entreprise en forte croissance, qui a dépassé le stade de la start-up', 'Une très petite entreprise', 'Une entreprise en difficulté', 'Un salon professionnel'],
+        'La start-up cherche encore son marché ; la scale-up l’a trouvé et cherche à grandir vite : recrutements, nouveaux pays, levées de fonds plus importantes.'),
+      vraiFaux('q9', 'Le chiffre d’affaires, c’est ce que l’entreprise gagne une fois toutes ses dépenses payées.', false,
+        'Ça, c’est le bénéfice (ou résultat). Le chiffre d’affaires, ce sont les ventes avant toute dépense.'),
+    ],
+  },
+};

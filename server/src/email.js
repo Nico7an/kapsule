@@ -2,6 +2,18 @@ import nodemailer from 'nodemailer';
 
 const env = process.env;
 
+// Journal Fastify (pino) branché au démarrage ; console par défaut (tests, scripts).
+let journal = {
+  info: (...a) => console.log(...a),
+  warn: (...a) => console.warn(...a),
+  error: (...a) => console.error(...a),
+};
+export function definirJournal(log) {
+  journal = log;
+}
+
+const enProduction = () => env.NODE_ENV === 'production';
+
 export function creerTransporteur() {
   const host = env.SMTP_HOST || 'ssl0.ovh.net';
   const port = Number(env.SMTP_PORT || 465);
@@ -13,14 +25,17 @@ export function creerTransporteur() {
     return null;
   }
 
+  // Pas de pool : le volume est faible et les connexions inactives gardées
+  // ouvertes finissent coupées par le serveur. Délais courts pour qu'une
+  // panne SMTP se traduise par une erreur visible, pas par une requête bloquée.
   return nodemailer.createTransport({
     host,
     port,
     secure,
     auth: { user, pass },
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 100,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
 }
 
@@ -31,15 +46,26 @@ export function reconfigurerTransporteur() {
   transporteur = creerTransporteur();
 }
 
-/** Formate le code 123456 en "123 456" pour une lisibilité maximale. */
-export const formaterCode = (code) => {
-  const s = String(code).trim();
-  return s.length === 6 ? `${s.slice(0, 3)} ${s.slice(3)}` : s;
-};
+/** Teste la connexion et l'authentification SMTP (appelé au démarrage). */
+export async function verifierSmtp() {
+  if (!transporteur) {
+    const msg = 'SMTP non configuré (SMTP_EMAIL / SMTP_PASSWORD manquants) : aucun e-mail ne sera envoyé';
+    if (enProduction()) journal.error(msg); else journal.warn(`${msg}, les codes seront affichés dans la console`);
+    return false;
+  }
+  const { host, port, auth } = transporteur.options;
+  try {
+    await transporteur.verify();
+    journal.info(`SMTP opérationnel : ${auth.user} via ${host}:${port}`);
+    return true;
+  } catch (err) {
+    journal.error({ code: err.code, reponse: err.response }, `SMTP inutilisable (${auth.user} via ${host}:${port}) : ${err.message}`);
+    return false;
+  }
+}
 
-/** Gabarit HTML pour les e-mails transactionnels Cyber. */
+/** Gabarit HTML pour les e-mails transactionnels Kapsule. */
 function gabaritHtml({ preheader, badge, titre, paragraphe, code, ctaUrl, ctaTexte, noteSecurite }) {
-  const codeFormate = formaterCode(code);
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -71,7 +97,7 @@ function gabaritHtml({ preheader, badge, titre, paragraphe, code, ctaUrl, ctaTex
   <div class="conteneur">
     <div class="carte">
       <div class="banniere">
-        <span class="logo">🛡️ Cyber</span>
+        <span class="logo">Kapsule</span>
       </div>
       <div class="corps">
         ${badge ? `<div class="badge">${badge}</div>` : ''}
@@ -80,7 +106,7 @@ function gabaritHtml({ preheader, badge, titre, paragraphe, code, ctaUrl, ctaTex
         
         <div class="boite-code">
           <div class="libelle-code">Votre code temporaire (15 min)</div>
-          <div class="code-chiffres">${codeFormate}</div>
+          <div class="code-chiffres">${code}</div>
         </div>
 
         ${ctaUrl && ctaTexte ? `
@@ -96,7 +122,7 @@ function gabaritHtml({ preheader, badge, titre, paragraphe, code, ctaUrl, ctaTex
     </div>
     <div class="pied">
       <p style="margin: 0; font-size: 12.5px; color: #767B8A;">
-        Plateforme d'entraînement Cyber · Sensibilisation interactive et ludique
+        Kapsule · Comprendre toute la boîte, une capsule de 3 minutes à la fois
       </p>
     </div>
   </div>
@@ -104,43 +130,39 @@ function gabaritHtml({ preheader, badge, titre, paragraphe, code, ctaUrl, ctaTex
 </html>`;
 }
 
-/** Envoie un e-mail transactionnel avec secours console si SMTP non configuré. */
+/**
+ * Envoie un e-mail transactionnel. Ne lève jamais : renvoie { ok, erreur }.
+ * Le contenu (qui contient un code de connexion) n'est écrit dans la console
+ * qu'en développement, sans SMTP configuré.
+ */
 export async function envoyerMail({ a, sujet, html, texte }) {
-  const de = env.SMTP_FROM || `"Cyber" <${env.SMTP_EMAIL || 'no-reply@krateos.fr'}>`;
+  const de = env.SMTP_FROM || `"Kapsule" <${env.SMTP_EMAIL || 'contact@nico7an.fr'}>`;
 
   if (!transporteur) {
-    console.log(`\n==================================================`);
-    console.log(`[EMAIL NON-SMTP] Destinataire: ${a}`);
-    console.log(`[EMAIL NON-SMTP] Sujet: ${sujet}`);
-    console.log(`[EMAIL NON-SMTP] Contenu texte:\n${texte}`);
-    console.log(`==================================================\n`);
+    if (enProduction()) {
+      journal.error({ destinataire: a }, 'E-mail non envoyé : SMTP non configuré');
+      return { ok: false, erreur: 'SMTP non configuré' };
+    }
+    journal.warn(`[E-MAIL DEV] À : ${a} | Sujet : ${sujet}\n${texte}`);
     return { ok: true, dev: true };
   }
 
+  const debut = Date.now();
   try {
-    const info = await transporteur.sendMail({
-      from: de,
-      to: a,
-      subject: sujet,
-      text: texte,
-      html: html,
-    });
-    console.log(`E-mail envoyé à ${a} (${info.messageId})`);
+    const info = await transporteur.sendMail({ from: de, to: a, subject: sujet, text: texte, html });
+    journal.info({ destinataire: a, messageId: info.messageId, reponse: info.response, ms: Date.now() - debut }, 'E-mail envoyé');
     return { ok: true, messageId: info.messageId };
   } catch (err) {
-    console.error(`Erreur d'envoi d'e-mail à ${a}:`, err.message);
-    // On logue également le contenu texte en secours console pour ne jamais bloquer l'utilisateur
-    console.log(`[SECOURS EMAIL] Code pour ${a}:\n${texte}`);
+    journal.error({ destinataire: a, code: err.code, reponse: err.response, ms: Date.now() - debut }, `Échec d'envoi d'e-mail : ${err.message}`);
     return { ok: false, erreur: err.message };
   }
 }
 
 /** Envoi d'un code OTP de connexion. */
 export async function envoyerCodeConnexion({ email, prenom, code, lienConnexion }) {
-  const codeFormate = formaterCode(code);
   const titre = `Bonjour ${prenom || ' !'}`;
-  const paragraphe = `<p>Voici votre code de connexion sécurisé pour accéder à votre espace <strong>Cyber</strong>.</p><p>Aucun mot de passe requis : saisissez le code ci-dessous sur l'écran de connexion ou cliquez directement sur le bouton.</p>`;
-  const preheader = `Votre code de connexion Cyber est ${codeFormate}`;
+  const paragraphe = `<p>Voici votre code de connexion sécurisé pour accéder à votre espace <strong>Kapsule</strong>.</p><p>Aucun mot de passe requis : saisissez le code ci-dessous sur l'écran de connexion ou cliquez directement sur le bouton.</p>`;
+  const preheader = `Votre code de connexion Kapsule est ${code}`;
 
   const html = gabaritHtml({
     preheader,
@@ -153,11 +175,11 @@ export async function envoyerCodeConnexion({ email, prenom, code, lienConnexion 
     noteSecurite: 'Ce code à usage unique expire dans 15 minutes. Ne le transmettez à personne.',
   });
 
-  const texte = `Bonjour ${prenom || ''},\n\nVoici votre code de connexion à Cyber : ${codeFormate}\n\nCe code expire dans 15 minutes.\nLien direct : ${lienConnexion || 'https://cyber.nico7an.fr'}\n`;
+  const texte = `Bonjour ${prenom || ''},\n\nVoici votre code de connexion à Kapsule : ${code}\n\nCe code expire dans 15 minutes.\nLien direct : ${lienConnexion || 'https://kapsule.nico7an.fr'}\n`;
 
   return envoyerMail({
     a: email,
-    sujet: `Votre code de connexion Cyber : ${codeFormate}`,
+    sujet: `Votre code de connexion Kapsule : ${code}`,
     html,
     texte,
   });
@@ -165,14 +187,13 @@ export async function envoyerCodeConnexion({ email, prenom, code, lienConnexion 
 
 /** Envoi d'une invitation par un administrateur. */
 export async function envoyerInvitationMembre({ email, nom, organisation, invitePar, code, lienConnexion }) {
-  const codeFormate = formaterCode(code);
   const titre = `Bienvenue dans l'équipe ${organisation} !`;
   const paragraphe = `
-    <p><strong>${invitePar || 'Votre administrateur'}</strong> vous a invité à rejoindre l'espace <strong>${organisation}</strong> sur <strong>Cyber</strong>.</p>
-    <p>Rejoignez vos collègues pour tester vos réflexes face aux pièges informatiques (phishing, mots de passe, fuites de données) à travers de courtes sessions de 3 minutes.</p>
+    <p><strong>${invitePar || 'Votre administrateur'}</strong> vous a invité à rejoindre l'espace <strong>${organisation}</strong> sur <strong>Kapsule</strong>.</p>
+    <p>Rejoignez vos collègues pour découvrir les métiers de toute l’entreprise, le droit des sociétés et les bons réflexes de cybersécurité, en courtes sessions de 3 minutes.</p>
     <p>Pour votre première connexion, utilisez le code temporaire ci-dessous :</p>
   `;
-  const preheader = `${invitePar || 'Votre équipe'} vous a invité sur Cyber. Votre code d'accès : ${codeFormate}`;
+  const preheader = `${invitePar || 'Votre équipe'} vous a invité sur Kapsule. Votre code d'accès : ${code}`;
 
   const html = gabaritHtml({
     preheader,
@@ -185,44 +206,11 @@ export async function envoyerInvitationMembre({ email, nom, organisation, invite
     noteSecurite: 'Pas de mot de passe à créer ! Vos futures connexions se feront directement par code envoyé sur cet e-mail.',
   });
 
-  const texte = `Bonjour ${nom},\n\n${invitePar || 'Un administrateur'} vous invite à rejoindre ${organisation} sur Cyber.\n\nVotre code d'accès : ${codeFormate}\nAccéder à la plateforme : ${lienConnexion || 'https://cyber.nico7an.fr'}\n`;
+  const texte = `Bonjour ${nom},\n\n${invitePar || 'Un administrateur'} vous invite à rejoindre ${organisation} sur Kapsule.\n\nVotre code d'accès : ${code}\nAccéder à la plateforme : ${lienConnexion || 'https://kapsule.nico7an.fr'}\n`;
 
   return envoyerMail({
     a: email,
-    sujet: `${invitePar || 'Invitation'} vous a invité à rejoindre ${organisation} sur Cyber`,
-    html,
-    texte,
-  });
-}
-
-/** Envoi d'un e-mail de bienvenue lors de la création d'une nouvelle organisation. */
-export async function envoyerBienvenueAdmin({ email, nom, organisation, code, lienConnexion }) {
-  const codeFormate = formaterCode(code);
-  const titre = `Votre organisation ${organisation} est prête !`;
-  const paragraphe = `
-    <p>Bonjour <strong>${nom}</strong>,</p>
-    <p>L'espace <strong>${organisation}</strong> a été créé avec succès sur la plateforme <strong>Cyber</strong>.</p>
-    <p>En tant qu'administrateur, vous pouvez dès à présent inviter vos équipes, suivre les statistiques de progression et créer vos propres défis personnalisés.</p>
-    <p>Voici votre code pour vous connecter à votre tableau de bord :</p>
-  `;
-  const preheader = `Votre espace ${organisation} est créé. Votre code de connexion : ${codeFormate}`;
-
-  const html = gabaritHtml({
-    preheader,
-    badge: 'Espace Administrateur',
-    titre,
-    paragraphe,
-    code,
-    ctaUrl: lienConnexion,
-    ctaTexte: 'Accéder au tableau de bord',
-    noteSecurite: 'Conservez cet accès précieusement. Les futures connexions s\'effectueront avec un nouveau code envoyé sur cet e-mail.',
-  });
-
-  const texte = `Bonjour ${nom},\n\nVotre espace ${organisation} sur Cyber est créé.\nVotre code de connexion administrateur : ${codeFormate}\nLien direct : ${lienConnexion || 'https://cyber.nico7an.fr'}\n`;
-
-  return envoyerMail({
-    a: email,
-    sujet: `Bienvenue sur Cyber · Votre espace ${organisation} est prêt`,
+    sujet: `${invitePar || 'Invitation'} vous a invité à rejoindre ${organisation} sur Kapsule`,
     html,
     texte,
   });
@@ -230,14 +218,13 @@ export async function envoyerBienvenueAdmin({ email, nom, organisation, code, li
 
 /** Envoi du code de confirmation pour rejoindre via lien public d'invitation. */
 export async function envoyerCodeRejoindre({ email, prenom, organisation, code }) {
-  const codeFormate = formaterCode(code);
   const titre = `Confirmez votre inscription à ${organisation}`;
   const paragraphe = `
     <p>Bonjour ${prenom || ''},</p>
-    <p>Vous êtes sur le point de rejoindre l'organisation <strong>${organisation}</strong> sur Cyber.</p>
+    <p>Vous êtes sur le point de rejoindre l'organisation <strong>${organisation}</strong> sur Kapsule.</p>
     <p>Entrez le code de vérification ci-dessous pour confirmer votre adresse et démarrer votre première leçon :</p>
   `;
-  const preheader = `Votre code de validation Cyber : ${codeFormate}`;
+  const preheader = `Votre code de validation Kapsule : ${code}`;
 
   const html = gabaritHtml({
     preheader,
@@ -248,11 +235,40 @@ export async function envoyerCodeRejoindre({ email, prenom, organisation, code }
     noteSecurite: 'Ce code expire dans 15 minutes. Si vous n\'avez pas demandé à rejoindre cette organisation, ignorez cet e-mail.',
   });
 
-  const texte = `Bonjour ${prenom || ''},\n\nVotre code pour rejoindre ${organisation} sur Cyber est : ${codeFormate}\nIl expire dans 15 minutes.\n`;
+  const texte = `Bonjour ${prenom || ''},\n\nVotre code pour rejoindre ${organisation} sur Kapsule est : ${code}\nIl expire dans 15 minutes.\n`;
 
   return envoyerMail({
     a: email,
-    sujet: `Code de validation Cyber : ${codeFormate}`,
+    sujet: `Code de validation Kapsule : ${code}`,
+    html,
+    texte,
+  });
+}
+
+/** Envoi du code de confirmation pour créer une nouvelle organisation. */
+export async function envoyerCodeCreation({ email, prenom, organisation, code }) {
+  const titre = `Confirmez la création de ${organisation}`;
+  const paragraphe = `
+    <p>Bonjour ${prenom || ''},</p>
+    <p>Vous êtes sur le point de créer l'espace <strong>${organisation}</strong> sur Kapsule, dont vous serez l'administrateur.</p>
+    <p>Entrez le code ci-dessous pour confirmer votre adresse : vous pourrez ensuite inviter votre équipe.</p>
+  `;
+  const preheader = `Votre code de création d'espace Kapsule : ${code}`;
+
+  const html = gabaritHtml({
+    preheader,
+    badge: 'Nouvelle organisation',
+    titre,
+    paragraphe,
+    code,
+    noteSecurite: 'Ce code expire dans 15 minutes. Si vous n\'avez pas demandé à créer cet espace, ignorez cet e-mail : rien ne sera créé.',
+  });
+
+  const texte = `Bonjour ${prenom || ''},\n\nVotre code pour créer l'espace ${organisation} sur Kapsule est : ${code}\nIl expire dans 15 minutes.\n`;
+
+  return envoyerMail({
+    a: email,
+    sujet: `Code de création Kapsule : ${code}`,
     html,
     texte,
   });

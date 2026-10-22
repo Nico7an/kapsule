@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-// Bitou, le cadenas mascotte. Son humeur suit le jeu.
+// Kapi, la gélule mascotte de Kapsule. Son humeur suit le jeu.
 export type Humeur = 'content' | 'fier' | 'triste' | 'surpris' | 'compromis' | 'dort';
 
 const BOUCHES: Record<Humeur, JSX.Element> = {
@@ -38,15 +38,15 @@ export function Mascotte({ humeur = 'content', taille = 120, anime = true, class
     : 'flotte 3s ease-in-out infinite';
   return (
     <svg width={taille} height={taille} viewBox="0 0 120 120" className={className} style={{ animation, overflow: 'visible', flex: 'none' }} aria-hidden="true">
-      {/* anse */}
-      <path d="M34 46V34a26 26 0 0 1 52 0v12" fill="none" stroke="var(--encre)" strokeWidth="14" strokeLinecap="round" />
-      <path d="M34 46V34a26 26 0 0 1 52 0v12" fill="none" stroke={humeur === 'compromis' ? 'var(--gris)' : '#C8C1AE'} strokeWidth="6" strokeLinecap="round" />
       {/* pieds */}
-      <rect x="34" y="102" width="18" height="12" rx="6" fill="var(--encre)" />
-      <rect x="68" y="102" width="18" height="12" rx="6" fill="var(--encre)" />
-      {/* corps */}
-      <rect x="16" y="40" width="88" height="68" rx="22" fill={humeur === 'compromis' ? 'var(--rouge)' : 'var(--jaune)'} stroke="var(--encre)" strokeWidth="4.5" />
-      <path d="M26 52q0-6 6-6h20" fill="none" stroke="#fff" strokeOpacity=".6" strokeWidth="4" strokeLinecap="round" />
+      <rect x="38" y="102" width="16" height="14" rx="6" fill="var(--encre)" />
+      <rect x="66" y="102" width="16" height="14" rx="6" fill="var(--encre)" />
+      {/* corps : une gélule, moitié haute colorée, moitié basse crème */}
+      <rect x="22" y="10" width="76" height="102" rx="38" fill="var(--carte)" />
+      <path d="M22 74V48a38 38 0 0 1 76 0v26z" fill={humeur === 'compromis' ? 'var(--rouge)' : 'var(--jaune)'} />
+      <path d="M22 74h76" stroke="var(--encre)" strokeWidth="4" />
+      <rect x="22" y="10" width="76" height="102" rx="38" fill="none" stroke="var(--encre)" strokeWidth="4.5" />
+      <path d="M34 44q1-16 14-23" fill="none" stroke="#fff" strokeOpacity=".65" strokeWidth="4.5" strokeLinecap="round" />
       {/* joues */}
       <ellipse cx="32" cy="78" rx="6" ry="4" fill="var(--rose)" opacity=".75" />
       <ellipse cx="88" cy="78" rx="6" ry="4" fill="var(--rose)" opacity=".75" />

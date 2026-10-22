@@ -6,7 +6,7 @@ import { synchroniserCatalogue } from '../src/contenu/index.js';
 import { CATALOGUE } from '../src/contenu/catalogue.js';
 import { hacherMotDePasse } from '../src/auth.js';
 import { calculerXp, niveau, minuitParisUTC, lundi, heureLocale } from '../src/jeu.js';
-import { creerDemo } from '../src/demo.js';
+import { reconfigurerTransporteur } from '../src/email.js';
 
 let db, app;
 const MDP = 'motdepasse-solide';
@@ -17,7 +17,7 @@ function client() {
   const appel = async (method, url, payload) => {
     const r = await app.inject({
       method, url, payload,
-      headers: { ...(cookie ? { cookie } : {}), ...(method !== 'GET' ? { 'x-cyber': '1' } : {}) },
+      headers: { ...(cookie ? { cookie } : {}), ...(method !== 'GET' ? { 'x-kapsule': '1' } : {}) },
     });
     const sc = r.headers['set-cookie'];
     if (sc) cookie = [sc].flat()[0].split(';')[0];
@@ -50,7 +50,7 @@ async function jouer(c, leconId, { erreurs = 0 } = {}) {
 }
 
 let orgA, orgB;
-const alice = client(), bob = client(), adminA = client(), adminB = client(), plateforme = client(), carol = client();
+const alice = client(), bob = client(), adminA = client(), adminB = client(), carol = client();
 
 before(async () => {
   db = ouvrirBase(':memory:');
@@ -64,8 +64,7 @@ before(async () => {
   ins.run(orgA, 'admin@a.fr', 'Admin A', h, 'admin');
   ins.run(orgB, 'admin@b.fr', 'Admin B', h, 'admin');
   ins.run(orgB, 'bob@b.fr', 'Bob', h, 'learner');
-  ins.run(null, 'root@cyber.fr', 'Plateforme', h, 'superadmin');
-  for (const [c, e] of [[adminA, 'admin@a.fr'], [adminB, 'admin@b.fr'], [bob, 'bob@b.fr'], [plateforme, 'root@cyber.fr']]) {
+  for (const [c, e] of [[adminA, 'admin@a.fr'], [adminB, 'admin@b.fr'], [bob, 'bob@b.fr']]) {
     assert.equal((await c.post('/api/auth/connexion', { email: e, motDePasse: MDP })).statut, 200);
   }
 });
@@ -152,7 +151,10 @@ test('trois erreurs : système compromis', async () => {
   assert.equal(r.statut, 200);
   assert.equal(r.corps.echec, true);
   assert.equal(r.corps.etoiles, 0);
-  assert.ok(r.corps.xp.gagne <= 10);
+  // Hors bonus de badges : selon l'heure du test, « Noctambule » ou « Lève-tôt »
+  // peuvent s'ajouter sans rapport avec l'échec.
+  const xpHorsBadges = r.corps.xp.lignes.filter((l) => l.cle !== 'badges').reduce((n, l) => n + l.xp, 0);
+  assert.ok(xpHorsBadges <= 10);
   // Réussir ensuite débloque « Résilient ».
   const r2 = await jouer(carol, 'reflexes-mdp');
   assert.ok(r2.corps.badges.some((b) => b.id === 'resilient'));
@@ -185,12 +187,10 @@ test('admin : ne voit et ne modifie que les membres de son organisation', async 
   assert.ok(csv.includes('alice@a.fr') && !csv.includes('bob@b.fr'));
 });
 
-test('rôles : un apprenant n\'accède ni à l\'admin ni à la plateforme', async () => {
+test('rôles : un apprenant n\'accède pas à l\'admin', async () => {
   assert.equal((await alice.get('/api/admin/vue-ensemble')).statut, 403);
-  assert.equal((await alice.get('/api/plateforme/organisations')).statut, 403);
-  assert.equal((await adminA.get('/api/plateforme/organisations')).statut, 403);
-  assert.equal((await plateforme.get('/api/admin/vue-ensemble')).statut, 403);
-  assert.equal((await plateforme.get('/api/parcours')).statut, 403);
+  // L'ancien espace plateforme n'existe plus.
+  assert.equal((await adminA.get('/api/plateforme/organisations')).statut, 404);
 });
 
 test('défis maison : invisibles des autres organisations', async () => {
@@ -259,16 +259,6 @@ test('export CSV : pas d\'injection de formule', async () => {
   assert.ok(csv.includes(`"'=HYPERLINK(""http://x"")"`));
 });
 
-test('plateforme : création puis suppression d\'organisation', async () => {
-  const r = await plateforme.post('/api/plateforme/organisations', { nom: 'Gamma', adminNom: 'Admin G', adminEmail: 'admin@g.fr' });
-  assert.equal(r.statut, 201);
-  const liste = (await plateforme.get('/api/plateforme/organisations')).corps;
-  assert.ok(liste.some((o) => o.name === 'Gamma'));
-  assert.equal((await plateforme.del(`/api/plateforme/organisations/${r.corps.id}`, { confirmation: 'gamma' })).statut, 400);
-  assert.equal((await plateforme.del(`/api/plateforme/organisations/${r.corps.id}`, { confirmation: 'Gamma' })).statut, 200);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE email = 'admin@g.fr'").get().n, 0);
-});
-
 test('règles du jeu', () => {
   assert.equal(niveau(0).niveau, 1);
   assert.equal(niveau(100).niveau, 2);
@@ -285,14 +275,14 @@ test('interface : fichiers statiques et repli de l\'application monopage', async
   const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
-  const dist = mkdtempSync(join(tmpdir(), 'cyber-dist-'));
+  const dist = mkdtempSync(join(tmpdir(), 'kapsule-dist-'));
   mkdirSync(join(dist, 'assets'));
-  writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Cyber</title>');
+  writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Kapsule</title>');
   writeFileSync(join(dist, 'assets', 'app.js'), 'console.log(1)');
   const web = construireApp({ db, statiques: dist, cookieSecurise: false });
   const accueil = await web.inject({ url: '/classement' });
   assert.equal(accueil.statusCode, 200);
-  assert.match(accueil.body, /Cyber/);
+  assert.match(accueil.body, /Kapsule/);
   assert.match(accueil.headers['content-security-policy'], /default-src 'self'/);
   const js = await web.inject({ url: '/assets/app.js' });
   assert.equal(js.statusCode, 200);
@@ -305,10 +295,77 @@ test('interface : fichiers statiques et repli de l\'application monopage', async
   await web.close();
 });
 
-test('organisation de démonstration', () => {
-  const d = ouvrirBase(':memory:');
-  synchroniserCatalogue(d);
-  assert.equal(creerDemo(d, { email: 'demo@x.fr', motDePasse: MDP }), true);
-  assert.equal(creerDemo(d, { email: 'demo@x.fr', motDePasse: MDP }), false);
-  assert.ok(d.prepare('SELECT COUNT(*) AS n FROM attempts').get().n > 50);
+test('SMTP en panne : erreur explicite au lieu d\'un faux « code envoyé »', async () => {
+  const avant = { ...process.env };
+  Object.assign(process.env, { SMTP_HOST: '127.0.0.1', SMTP_PORT: '1', SMTP_SECURE: 'false', SMTP_EMAIL: 'x@x.fr', SMTP_PASSWORD: 'x' });
+  reconfigurerTransporteur();
+  try {
+    const r = await client().post('/api/auth/demander-code', { email: 'dan@a.fr' });
+    assert.equal(r.statut, 503);
+    assert.equal(r.corps.devCode, undefined);
+    const inv = await adminA.post('/api/admin/membres', { nom: 'Eve', email: 'eve@a.fr', role: 'learner' });
+    assert.equal(inv.statut, 201);
+    assert.equal(inv.corps.emailEnvoye, false);
+  } finally {
+    for (const k of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_EMAIL', 'SMTP_PASSWORD']) {
+      if (k in avant) process.env[k] = avant[k]; else delete process.env[k];
+    }
+    reconfigurerTransporteur();
+  }
+});
+
+test('création d\'organisation en libre-service par code e-mail', async () => {
+  const fondateur = client();
+  const demande = await fondateur.post('/api/auth/demander-creation', { organisation: 'Atelier Durand', nom: 'Zoé Durand', email: 'zoe@durand.fr', avatar: 'hibou' });
+  assert.equal(demande.statut, 200);
+  assert.ok(demande.corps.devCode);
+  // Rien n'existe avant la validation du code.
+  assert.equal(db.prepare('SELECT 1 FROM orgs WHERE name = ?').get('Atelier Durand'), undefined);
+  // Un code de création n'ouvre pas de session par la route de connexion.
+  assert.equal((await client().post('/api/auth/valider-code', { email: 'zoe@durand.fr', code: demande.corps.devCode })).statut, 400);
+
+  const nouvelle = await fondateur.post('/api/auth/demander-creation', { organisation: 'Atelier Durand', nom: 'Zoé Durand', email: 'zoe@durand.fr', avatar: 'hibou' });
+  // Code collé tel qu'on le copie d'un mail : espaces et texte autour sont ignorés.
+  const c = nouvelle.corps.devCode;
+  const r = await fondateur.post('/api/auth/valider-creation', { email: 'zoe@durand.fr', code: ` Code : ${c.slice(0, 3)} ${c.slice(3)}\n` });
+  assert.equal(r.statut, 201);
+  assert.equal(r.corps.role, 'admin');
+  assert.equal(r.corps.organisation.nom, 'Atelier Durand');
+  assert.equal(r.corps.avatar, 'hibou');
+  // La fondatrice administre bien son espace, et seulement le sien.
+  const membres = await fondateur.get('/api/admin/membres');
+  assert.equal(membres.statut, 200);
+  assert.deepEqual(membres.corps.membres.map((m) => m.email), ['zoe@durand.fr']);
+
+  // Nom déjà pris (casse ignorée) et adresse déjà inscrite refusés.
+  assert.equal((await client().post('/api/auth/demander-creation', { organisation: 'atelier durand', nom: 'X', email: 'x@x.fr' })).statut, 400);
+  assert.equal((await client().post('/api/auth/demander-creation', { organisation: 'Autre', nom: 'X', email: 'zoe@durand.fr' })).statut, 409);
+});
+
+test('défis standard : une organisation supprime et restaure du catalogue pour elle seule', async () => {
+  const cat = (await adminB.get('/api/admin/catalogue')).corps;
+  assert.ok(cat.some((p) => p.id === 'decouverte-dys') && cat.some((p) => p.id === 'decouverte-cfa'));
+  assert.equal((await bob.get('/api/admin/catalogue')).statut, 403);
+  assert.equal((await adminB.del('/api/admin/catalogue/parcours/inconnu')).statut, 404);
+  assert.equal((await adminB.del('/api/admin/catalogue/autre/reflexes')).statut, 404);
+
+  // Suppression d'un parcours entier : il disparaît pour l'organisation B seulement.
+  assert.equal((await adminB.del('/api/admin/catalogue/parcours/decouverte-cfa')).statut, 200);
+  assert.ok(!(await bob.get('/api/parcours')).corps.some((p) => p.id === 'decouverte-cfa'));
+  assert.equal((await bob.post('/api/lecons/cfa-lexique/demarrer')).statut, 404);
+  assert.ok((await alice.get('/api/parcours')).corps.some((p) => p.id === 'decouverte-cfa'));
+  assert.equal((await adminB.get('/api/admin/catalogue')).corps.find((p) => p.id === 'decouverte-cfa').supprime, true);
+
+  // Suppression d'une leçon : la suivante prend sa place dans la progression.
+  assert.equal((await adminB.del('/api/admin/catalogue/lecons/dys-lexique')).statut, 200);
+  const dys = (await bob.get('/api/parcours')).corps.find((p) => p.id === 'decouverte-dys');
+  assert.equal(dys.lecons[0].id, 'dys-comprendre');
+  assert.equal(dys.lecons[0].ouverte, true);
+
+  // Restauration à l'identique.
+  assert.equal((await adminB.post('/api/admin/catalogue/parcours/decouverte-cfa/restaurer')).statut, 200);
+  assert.equal((await adminB.post('/api/admin/catalogue/lecons/dys-lexique/restaurer')).statut, 200);
+  const arbre = (await bob.get('/api/parcours')).corps;
+  assert.ok(arbre.some((p) => p.id === 'decouverte-cfa'));
+  assert.equal(arbre.find((p) => p.id === 'decouverte-dys').lecons[0].id, 'dys-lexique');
 });

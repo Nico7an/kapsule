@@ -11,6 +11,12 @@
 // Les ids de question doivent rester stables : les statistiques des admins
 // (« questions les plus ratées ») s'appuient dessus.
 
+import { DROIT } from './droit.js';
+import { METIERS } from './metiers.js';
+import { EXPERT } from './expert.js';
+import { LEXIQUE } from './lexique.js';
+import { FORMATION } from './formation.js';
+
 const vraiFaux = (id, enonce, vrai, explication, support) => ({
   id, type: 'unique', enonce, choix: ['Vrai', 'Faux'], reponse: vrai ? 0 : 1, explication, ...(support ? { support } : {}),
 });
@@ -19,7 +25,7 @@ const piege = (id, support, estPiege, explication, enonce = 'Ce message est-il l
   id, type: 'unique', enonce, choix: ['Légitime', 'Piège'], reponse: estPiege ? 1 : 0, explication, support,
 });
 
-export const CATALOGUE = [
+const CYBER = [
   // ---------------------------------------------------------------------------
   {
     id: 'reflexes',
@@ -727,4 +733,22 @@ export const CATALOGUE = [
       },
     ],
   },
+];
+
+// Catalogue complet : la cybersécurité, puis le droit des sociétés, les
+// métiers de l'entreprise et la formation (troubles dys, CFA), dans les fichiers voisins. L'ordre fixe celui des parcours.
+// Les parcours droit et métiers s'ouvrent sur une leçon « lexique » et se
+// terminent par une leçon « niveau expert ».
+const avecExpert = (p) => {
+  if (!LEXIQUE[p.id]) throw new Error(`Parcours ${p.id} : leçon lexique manquante`);
+  if (!EXPERT[p.id]) throw new Error(`Parcours ${p.id} : leçon expert manquante`);
+  return { ...p, lecons: [LEXIQUE[p.id], ...p.lecons, EXPERT[p.id]] };
+};
+
+export const CATALOGUE = [
+  ...CYBER.map((p) => ({ ...p, categorie: 'cyber' })),
+  ...DROIT.map(avecExpert),
+  ...METIERS.map(avecExpert),
+  // Lexique et niveau expert sont déjà inclus dans formation.js.
+  ...FORMATION,
 ];

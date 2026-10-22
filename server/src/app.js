@@ -8,7 +8,6 @@ import { ErreurValidation } from './contenu/index.js';
 import routesAuth from './routes/auth.js';
 import routesJeu from './routes/jeu.js';
 import routesAdmin from './routes/admin.js';
-import routesPlateforme from './routes/plateforme.js';
 
 const CSP = [
   "default-src 'self'",
@@ -28,7 +27,10 @@ const CSP = [
 export function construireApp({ db, statiques, logger = false, cookieSecurise = true }) {
   const app = Fastify({
     logger,
-    trustProxy: true,
+    // Un seul proxy devant nous (Traefik) : on ne croit que la dernière adresse de
+    // X-Forwarded-For, sinon un client pourrait s'inventer une IP et contourner
+    // les limites de demandes de code.
+    trustProxy: 1,
     bodyLimit: 256 * 1024,
   });
 
@@ -42,7 +44,7 @@ export function construireApp({ db, statiques, logger = false, cookieSecurise = 
     if (!req.url.startsWith('/api/')) return;
     // Protection CSRF : un site tiers ne peut pas ajouter d'en-tête personnalisé
     // à une requête sans passer par une requête CORS préalable, que l'on refuse.
-    if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['x-cyber'] !== '1') {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['x-kapsule'] !== '1') {
       return reply.code(403).send({ erreur: 'Requête refusée' });
     }
     req.user = lireSession(db, req.cookies?.[COOKIE]);
@@ -64,11 +66,11 @@ export function construireApp({ db, statiques, logger = false, cookieSecurise = 
     return reply.code(500).send({ erreur: 'Erreur interne' });
   });
 
-  app.get('/api/sante', async () => ({ ok: true }));
+  // Interrogé toutes les 30 s par le healthcheck Docker : hors journal pour ne pas noyer le reste.
+  app.get('/api/sante', { logLevel: 'silent' }, async () => ({ ok: true }));
   app.register(routesAuth, { prefix: '/api' });
   app.register(routesJeu, { prefix: '/api' });
   app.register(routesAdmin, { prefix: '/api/admin' });
-  app.register(routesPlateforme, { prefix: '/api/plateforme' });
 
   const aDesStatiques = statiques && existsSync(join(statiques, 'index.html'));
   if (aDesStatiques) {
