@@ -2,7 +2,7 @@
 
 **Kapsule** est une plateforme d'apprentissage ludique (dans l'esprit de Duolingo) pour comprendre le travail de toute l'entreprise : les métiers des collègues (dev, DevOps, marketing, commerciaux, Customer Success, CTO, CEO), le droit des sociétés et le quotidien des clients (avocats, experts-comptables, juristes d'entreprise), la cybersécurité, ainsi que la formation et l'inclusion (troubles dys, CFA). Elle combine gamification, isolation stricte multi-organisations et tableaux de bord d'administration.
 
-L'application s'appelait auparavant « Cyber » (cyber.nico7an.fr, redirigé vers kapsule.nico7an.fr).
+kapsule.nico7an.fr
 
 ---
 
